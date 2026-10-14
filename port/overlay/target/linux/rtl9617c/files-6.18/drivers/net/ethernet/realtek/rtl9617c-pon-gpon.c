@@ -59,6 +59,7 @@ int rtl_pon_gpon_prepare_locked(struct rtl9617c_pon *pon)
 	lockdep_assert_held(&pon->control_lock);
 	gpiod_set_value_cansleep(pon->tx_disable, 1);
 	rtl_pon_gpon_stop_locked(pon);
+	rtl_pon_xgpon_stop_locked(pon);
 	rtl_pon_mpcp_stop_locked(pon);
 	mutex_lock(&pon->lock);
 	pon->mac_prepared = false;
@@ -118,6 +119,8 @@ void rtl_pon_gpon_stop_locked(struct rtl9617c_pon *pon)
 		return;
 	}
 	pon->gpon_enabled = false;
+	pon->itu_line_epoch++;
+	rtl_pon_itu_paths_invalidate(pon);
 	pon->gpon_omcc_ready = false;
 	writel(0, pon->mac + 0x6088);
 	writel(0, pon->mac + 0x6090);
@@ -234,6 +237,11 @@ status:
 		netif_carrier_off(pon->omci_device);
 	if (state == 6 || pon->gpon_last_state == 6)
 		gpiod_set_value_cansleep(pon->tx_disable, state == 6);
+	if ((pon->gpon_last_state == 4 || pon->gpon_last_state == 5) && state != 4 && state != 5)
+		pon->itu_line_epoch++;
+	if (!netif_carrier_ok(pon->omci_device) && pon->itu_paths_ready)
+		rtl_pon_itu_paths_invalidate(pon);
+	rtl_pon_itu_carrier(pon);
 	if (state != pon->gpon_last_state) {
 		char value[32], identity[32];
 		char *env[] = {"PON_EVENT=activation", value, identity, NULL};

@@ -122,11 +122,13 @@ static void rtl_pon_serdes_work(struct work_struct *work)
 void rtl_pon_serdes_init_work(struct rtl9617c_pon *pon)
 {
 	INIT_DELAYED_WORK(&pon->serdes_work, rtl_pon_serdes_work);
+	INIT_DELAYED_WORK(&pon->xgpon_recovery_work, rtl_pon_xgpon_recovery);
 }
 
 void rtl_pon_serdes_stop_work(struct rtl9617c_pon *pon)
 {
 	cancel_delayed_work_sync(&pon->serdes_work);
+	cancel_delayed_work_sync(&pon->xgpon_recovery_work);
 }
 
 int rtl_pon_serdes_configure_locked(struct rtl9617c_pon *pon, enum rtl_pon_mode mode)
@@ -144,6 +146,7 @@ int rtl_pon_serdes_configure_locked(struct rtl9617c_pon *pon, enum rtl_pon_mode 
 	if (ret)
 		goto release;
 	rtl_pon_gpon_stop_locked(pon);
+	rtl_pon_xgpon_stop_locked(pon);
 	rtl_pon_mpcp_stop_locked(pon);
 	rtl_pon_epon_traffic_locked(pon, false);
 	cancel_delayed_work_sync(&pon->serdes_work);
