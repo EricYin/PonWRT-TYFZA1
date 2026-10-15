@@ -116,3 +116,12 @@ jobs:
             artifacts/release/COPYING artifacts/release/PonWRT-TYFZA1-source.tar.gz \
             --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+
+      - name: Upload final OpenWrt configuration
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: openwrt-final-config
+          path: sources/openwrt/.config
+          include-hidden-files: true
+          if-no-files-found: warn
