@@ -2,6 +2,8 @@
 # 安装和更新第三方软件包
 # 此脚本在 openwrt/package/ 目录下运行，在 feeds install 之后执行
 
+set -e
+
 UPDATE_PACKAGE() {
 	local -n PKG_NAMES=$1
 	local PKG_REPO=$2
