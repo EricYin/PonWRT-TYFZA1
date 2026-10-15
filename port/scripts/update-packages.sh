@@ -73,7 +73,7 @@ UPDATE_PACKAGE() {
 echo "Starting package updates..."
 
 # client time control
-pkgs=("luci-app-timecontrol"); UPDATE_PACKAGE pkgs "EricYin/luci-app-timecontrol" "custom"; unset pkgs
+pkgs=("luci-app-timecontrol"); UPDATE_PACKAGE pkgs "EricYin/luci-app-timecontrol" "custom" "pkg"; unset pkgs
 sed -i 's|include ../../luci.mk|include $(TOPDIR)/feeds/luci/luci.mk|' ./luci-app-timecontrol/Makefile
 
 echo "=========================================="
