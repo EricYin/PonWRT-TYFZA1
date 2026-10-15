@@ -22,6 +22,12 @@ fi
 PE_RADIO_CFLAGS=-DPE_UPLINK sh "$PROJECT/scripts/build_pe_radio_wd.sh" "$PROJECT/artifacts/pe-radio-production"
 cp "$PROJECT/artifacts/pe-radio-production/pe-tx-code.h" \
     "$PORT/overlay/target/linux/rtl9617c/files-6.18/drivers/net/wireless/realtek/rtl_ax_ap/pe-tx-code.h"
+    
+saved_dir=$(pwd)
+cd "$TREE/package"
+sh "$PORT/scripts/update-packages.sh"
+cd "$saved_dir" 
+
 sh "$PORT/scripts/sync-overlay.sh" "$TREE"
 sh "$PROJECT/scripts/prepare_luci_feeds.sh" "$TREE"
 cd "$TREE"
