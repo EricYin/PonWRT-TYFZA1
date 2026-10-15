@@ -648,6 +648,12 @@ static irqreturn_t rtl_ax_rx_interrupt(int irq, void *context)
 		io->write32(io->ctx, 0x10b4, pending);
 	if (halt) {
 		rx->halt_error = io->read32(io->ctx, 0x016c);
+		/* Preserve the first hardware cause before later H2C timeouts. */
+		dev_err(&rx->pdev->dev,
+			"firmware halt=%08x DMAC_error=%08x host_dispatcher=%08x WDE_error=%08x PLE_error=%08x TX0=%08x HIQ=%08x\n",
+			rx->halt_error, io->read32(io->ctx, 0x8524), io->read32(io->ctx, 0x8808),
+			io->read32(io->ctx, 0x8c3c), io->read32(io->ctx, 0x903c),
+			io->read32(io->ctx, 0x1058), io->read32(io->ctx, 0x107c));
 		io->write32(io->ctx, 0x01a4, halt);
 	}
 	if (pending & (BIT(20) | BIT(19)))
@@ -656,6 +662,27 @@ static irqreturn_t rtl_ax_rx_interrupt(int irq, void *context)
 	mod_delayed_work(system_wq, &rx->work, 0);
 	spin_unlock_irqrestore(&rx->irq_lock, flags);
 	return IRQ_HANDLED;
+}
+
+void rtl_ax_rx_log_stall(struct rtl_ax_rx *rx)
+{
+	const struct rtl_ax_io *io = rx->io;
+
+	dev_err(&rx->pdev->dev,
+		"RX state running=%u PE_owned=%u IRQ=%d interrupts=%llu work=%x IMR=%08x ISR=%08x indication=%08x/%08x\n",
+		rx->running, rx->rpq_owned, rx->irq, rx->interrupts, work_busy(&rx->work.work),
+		io->read32(io->ctx, 0x10b0), io->read32(io->ctx, 0x10b4),
+		io->read32(io->ctx, 0x30b0), io->read32(io->ctx, 0x30b4));
+	for (unsigned int n = 0; n < 2; n++) {
+		struct rtl_ax_rx_queue *q = &rx->queues[n];
+		u8 *buffer = q->buffers + rtl_ax_rx_buffer_offset(q, q->consumer);
+
+		dev_err(&rx->pdev->dev,
+			"RX queue=%u consumer=%u tag=%u packets=%llu tag_pending=%llu malformed=%llu next_info=%08x next_WD=%08x\n",
+			n, q->consumer, q->tag, q->packets, q->tag_pending, q->malformed,
+			le32_to_cpu(READ_ONCE(*(__le32 *)buffer)),
+			le32_to_cpu(READ_ONCE(*(__le32 *)(buffer + 4))));
+	}
 }
 
 void rtl_ax_rx_open(struct rtl_ax_rx *rx)

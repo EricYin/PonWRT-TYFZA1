@@ -3,6 +3,7 @@
 #define RTL9617C_QM_H
 #include <linux/dma-mapping.h>
 #include <linux/netdevice.h>
+#include <linux/rtl9617c-wifi.h>
 #include "rtl9617c-ni.h"
 #include "rtl9617c-qm-refill.h"
 #include "rtl9617c-qm-deepq.h"
@@ -17,9 +18,10 @@
 #define RTL_QM_MEMORY_BYTES (RTL_QM_RING_BYTES * RTL_QM_VOQS + RTL_QM_BUFFERS * RTL_QM_BUFFER_BYTES)
 #define RTL_QM_PE_EQ 6
 #define RTL_QM_PE_POOLS 2
-#define RTL_QM_PE_BUFFERS 512
-#define RTL_QM_PE_BID_START 1536
-#define RTL_QM_DRAM_BYTES (RTL_DQ_MEMORY_BYTES + RTL_QM_PE_POOLS * RTL_QM_PE_BUFFERS * RTL_QM_BUFFER_BYTES)
+#define RTL_QM_PE_BUFFERS RTL9617C_WIFI_BUFFERS
+#define RTL_QM_PE_BID_START RTL9617C_WIFI_BID_START
+#define RTL_QM_PE_CHUNK_BUFFERS 1024
+#define RTL_QM_PE_CHUNKS ((RTL_QM_PE_BUFFERS + RTL_QM_PE_CHUNK_BUFFERS - 1) / RTL_QM_PE_CHUNK_BUFFERS)
 
 struct rtl_qm_rx {
 	void __iomem *ni;
@@ -32,6 +34,10 @@ struct rtl_qm_rx {
 	dma_addr_t ring_dma;
 	void *deepq_memory;
 	dma_addr_t deepq_dma;
+	void *wifi_memory[RTL_QM_PE_POOLS][RTL_QM_PE_CHUNKS];
+	dma_addr_t wifi_dma[RTL_QM_PE_POOLS][RTL_QM_PE_CHUNKS];
+	void *wifi_epp[RTL_QM_PE_POOLS];
+	dma_addr_t wifi_epp_dma[RTL_QM_PE_POOLS];
 	bool deepq_configured;
 	unsigned int read[RTL_QM_VOQS];
 	u32 last_address;

@@ -135,6 +135,8 @@ struct rtl_ax_ap {
 	struct ieee80211_vif *ap_vif;
 	struct wiphy_work beacon_work;
 	struct wiphy_work offload_work;
+	struct wiphy_work ra_update_work;
+	DECLARE_BITMAP(ra_pending, 128);
 	bool peer_authorized[128];
 	u64 offload_started;
 	int offload_result;
@@ -178,6 +180,8 @@ struct rtl_ax_ap {
 	bool ra_registered[128];
 	u8 ra_config[128][16], ra_feedback[128][8];
 	u64 ra_reports[128];
+	u64 ra_updates[128];
+	int ra_update_error[128];
 	u8 ra_txstats[128][32];
 	u64 ra_txstats_reports[128];
 	u8 ra_rssi[128][3];
@@ -470,11 +474,12 @@ static int rtl_ax_command_flags(struct rtl_ax_ap *radio, unsigned int buffer_cla
 	unsigned int category, unsigned int class, unsigned int function,
 	const void *data, unsigned int bytes, bool receive_ack, bool done_ack)
 {
-	unsigned int slot;
+	unsigned int slot, sequence;
 	unsigned long flags;
 	int length, ret;
 
 	mutex_lock(&radio->command_mutex);
+	sequence = radio->command_sequence;
 	slot = buffer_class * RTL_AX_H2C_CLASS_BUFFERS + radio->h2c_available[buffer_class];
 	length = rtl_ax_command_packet(radio->h2c_packet + slot * RTL_AX_H2C_BUFFER_BYTES,
 				       RTL_AX_H2C_BUFFER_BYTES, data, bytes, category, class,
@@ -511,6 +516,21 @@ static int rtl_ax_command_flags(struct rtl_ax_ap *radio, unsigned int buffer_cla
 		radio->command_pending = false;
 		spin_unlock_irqrestore(&radio->command_lock, flags);
 	}
+	if (ret == -ETIMEDOUT) {
+		dev_err(&radio->pdev->dev,
+			"H2C timeout category=%u class=%u function=%u sequence=%u ACK=%u/%u TXBD=%08x RXQ=%08x RPQ=%08x\n",
+			category, class, function, sequence, receive_ack, done_ack,
+			rtl_ax_read32(radio, RTL_AX_H2C_INDEX), rtl_ax_read32(radio, 0x1218),
+			rtl_ax_read32(radio, 0x121c));
+		/* Same error registers read by the original mac_dump_err_status. */
+		dev_err(&radio->pdev->dev,
+			"DMA state SER=%08x DMAC=%08x CMAC=%08x HAXI=%08x WDE=%08x PLE=%08x HFC=%08x WCPU=%02x\n",
+			rtl_ax_read32(radio, 0x8424), rtl_ax_read32(radio, 0x8524),
+			rtl_ax_read32(radio, 0xc164), rtl_ax_read32(radio, 0x10bc),
+			rtl_ax_read32(radio, 0x8c34), rtl_ax_read32(radio, 0x9034),
+			rtl_ax_read32(radio, 0x1700), rtl_ax_read8(radio, RTL_AX_WCPU_CONTROL));
+		rtl_ax_rx_log_stall(radio->rx);
+	}
 unlock:
 	mutex_unlock(&radio->command_mutex);
 	return ret;
@@ -522,6 +542,20 @@ static int rtl_ax_command(struct rtl_ax_ap *radio, unsigned int buffer_class,
 {
 	return rtl_ax_command_flags(radio, buffer_class, category, class, function,
 				    data, bytes, false, done_ack);
+}
+
+int rtl_ax_mac_drop_peer(struct pci_dev *pdev, unsigned int macid)
+{
+	struct rtl_ax_ap *radio = pci_get_drvdata(pdev);
+	u8 drop[24];
+	int ret;
+
+	for (unsigned int ac = 0; ac < 4; ac++) {
+		rtl_ax_station_drop(drop, macid, ac);
+		ret = rtl_ax_command(radio, RTL_AX_H2C_CMD, 1, 9, 27, drop, sizeof(drop), false);
+		if (ret) return ret;
+	}
+	return 0;
 }
 
 static int rtl_ax_station_tables(struct rtl_ax_ap *radio, unsigned int macid)
@@ -547,7 +581,8 @@ static int rtl_ax_station_connected_table(struct rtl_ax_ap *radio, unsigned int 
 	rtl_ax_station_cmac_connected(cmac, macid, radio->chip == RTL_AX_8852C, 0);
 	if (sta->deflink.he_cap.has_he)
 		rtl_ax_station_cmac_he(cmac, rtl_ax_he_padding(sta->deflink.he_cap.he_cap_elem.phy_cap_info,
-			sta->deflink.he_cap.ppe_thres, min_t(unsigned int, sta->deflink.rx_nss, 2)));
+			sta->deflink.he_cap.ppe_thres, min_t(unsigned int,
+			sta->deflink.smps_mode == IEEE80211_SMPS_STATIC ? 1 : sta->deflink.rx_nss, 2)));
 	return rtl_ax_command(radio, RTL_AX_H2C_DATA, 1, 5, 2, cmac, sizeof(cmac), true);
 }
 
@@ -2294,10 +2329,10 @@ static ssize_t radio_ra_show(struct device *dev,
 		const u8 *r = radio->ra_feedback[i];
 		if (!radio->ra_registered[i] && !radio->ra_reports[i]) continue;
 		bytes += sysfs_emit_at(buffer, bytes,
-			"MACID=%u registered=%u reports=%llu retry_ratio=%u rate=%u mode=%u GI=%u BW=%u MU=%u H2C=%16phN C2H=%8phN\n",
+			"MACID=%u registered=%u reports=%llu retry_ratio=%u rate=%u mode=%u GI=%u BW=%u MU=%u H2C=%16phN C2H=%8phN updates=%llu update_error=%d\n",
 			i, radio->ra_registered[i], radio->ra_reports[i], r[2], r[4] & 127,
 			r[5] & 3, (r[5] >> 2) & 7, (r[5] >> 5) & 3, r[4] >> 7,
-			radio->ra_config[i], r);
+			radio->ra_config[i], r, radio->ra_updates[i], radio->ra_update_error[i]);
 		bytes += sysfs_emit_at(buffer, bytes, "RSSI_MACID=%u samples=%llu avg_U8_1=%u paths_U8_1=%u,%u\n",
 			i, radio->ra_rssi_samples[i], radio->ra_rssi[i][0], radio->ra_rssi[i][1], radio->ra_rssi[i][2]);
 		if (radio->ra_txstats_reports[i]) {

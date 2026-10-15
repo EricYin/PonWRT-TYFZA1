@@ -226,12 +226,13 @@ static ssize_t activation_show(struct device *dev, struct device_attribute *attr
 
 	mutex_lock(&pon->lock);
 	if (pon->mode == RTL_PON_XGPON || pon->mode == RTL_PON_XGSPON) {
-		size = sysfs_emit(buf, "enabled=%u omcc=%u omcc_onu_id=%u omcc_gem=%u error=%d irq_count=%llu last_irq=%08x key_ready=%u key_state=%u active_key=%u key_reports=%llu tk4=%llu tk5=%llu recovering=%u\n",
+		size = sysfs_emit(buf, "enabled=%u omcc=%u omcc_onu_id=%u omcc_gem=%u error=%d irq_count=%llu last_irq=%08x key_ready=%u key_state=%u active_key=%u key_reports=%llu tk4=%llu tk5=%llu recovering=%u last_events=%08x deactivations=%llu\n",
 			pon->xgpon_enabled, pon->xgpon_omcc_ready, pon->xgpon_omcc_id,
 			pon->xgpon_omcc_id, pon->xgpon_activation_error, pon->xgpon_irq_count,
 			pon->xgpon_last_irq, pon->xgpon_key_ready, pon->xgpon_key_state,
 			pon->xgpon_active_key + 1, pon->xgpon_key_reports, pon->xgpon_key_tk4,
-			pon->xgpon_key_tk5, pon->xgpon_recover);
+			pon->xgpon_key_tk5, pon->xgpon_recover, pon->xgpon_last_transitions,
+			pon->xgpon_deactivations);
 		mutex_unlock(&pon->lock);
 		return size;
 	}
@@ -605,8 +606,7 @@ static BIN_ATTR(xgpon_identity, 0200, NULL, xgpon_identity_write, 0);
 static ssize_t itu_paths_write(struct file *file, struct kobject *kobj,
 	const struct bin_attribute *attr, char *buf, loff_t offset, size_t count)
 {
-	if (offset) return -EINVAL;
-	return rtl_pon_itu_paths_write(dev_get_drvdata(kobj_to_dev(kobj)), buf, count);
+	return rtl_pon_itu_paths_upload(dev_get_drvdata(kobj_to_dev(kobj)), buf, offset, count);
 }
 static BIN_ATTR(itu_paths, 0200, NULL, itu_paths_write, 0);
 
@@ -801,20 +801,30 @@ static int rtl9617c_pon_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static void rtl9617c_pon_remove(struct platform_device *pdev)
+static void rtl9617c_pon_shutdown(struct platform_device *pdev)
 {
 	struct rtl9617c_pon *pon = platform_get_drvdata(pdev);
+	int ret;
 
 	mutex_lock(&pon->control_lock);
 	rtl_pon_gpon_stop_locked(pon);
 	rtl_pon_xgpon_stop_locked(pon);
-	rtl_pon_epon_traffic_locked(pon, false);
+	ret = rtl_pon_epon_traffic_locked(pon, false);
+	if (ret)
+		dev_err(pon->dev, "PON forwarding cleanup failed during shutdown: %d\n", ret);
 	rtl_pon_mpcp_stop_locked(pon);
 	writel(0, pon->top_irq + 4);
 	writel(0, pon->optical_irq + 4);
 	synchronize_irq(pon->mpcp_irq);
 	mutex_unlock(&pon->control_lock);
 	rtl_pon_serdes_stop_work(pon);
+}
+
+static void rtl9617c_pon_remove(struct platform_device *pdev)
+{
+	struct rtl9617c_pon *pon = platform_get_drvdata(pdev);
+
+	rtl9617c_pon_shutdown(pdev);
 	rtl_pon_oam_remove(pon);
 	rtl_pon_omci_remove(pon);
 }
@@ -828,6 +838,7 @@ MODULE_DEVICE_TABLE(of, rtl9617c_pon_of_match);
 static struct platform_driver rtl9617c_pon_driver = {
 	.probe = rtl9617c_pon_probe,
 	.remove = rtl9617c_pon_remove,
+	.shutdown = rtl9617c_pon_shutdown,
 	.driver = {
 		.name = "rtl9617c-pon",
 		.of_match_table = rtl9617c_pon_of_match,
