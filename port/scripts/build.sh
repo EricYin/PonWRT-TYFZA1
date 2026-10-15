@@ -22,14 +22,15 @@ fi
 PE_RADIO_CFLAGS=-DPE_UPLINK sh "$PROJECT/scripts/build_pe_radio_wd.sh" "$PROJECT/artifacts/pe-radio-production"
 cp "$PROJECT/artifacts/pe-radio-production/pe-tx-code.h" \
     "$PORT/overlay/target/linux/rtl9617c/files-6.18/drivers/net/wireless/realtek/rtl_ax_ap/pe-tx-code.h"
-    
-saved_dir=$(pwd)
-cd "$TREE/package"
-bash "$PORT/scripts/update-packages.sh"
-cd "$saved_dir" 
 
 sh "$PORT/scripts/sync-overlay.sh" "$TREE"
 sh "$PROJECT/scripts/prepare_luci_feeds.sh" "$TREE"
+
+#saved_dir=$(pwd)
+cd "$TREE/package"
+bash "$PORT/scripts/update-packages.sh"
+#cd "$saved_dir" 
+
 cd "$TREE"
 REGDB_PATCHED=0
 if ! grep -Fq 'regulatory.db.p7s' package/firmware/wireless-regdb/Makefile; then
@@ -56,5 +57,5 @@ else
         --stock "${TYFZA1_STOCK_INPUTS:-$PROJECT/analysis/private/live-files}"
     python3 "$PROJECT/tools/prepare_wifi_runtime.py" "$TREE/files" --openwrt-tree "$TREE"
 fi
-#make -j"$JOBS" world
-make -j1 V=s world
+make -j"$JOBS" world
+#make -j1 V=s world
