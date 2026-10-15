@@ -25,7 +25,7 @@ cp "$PROJECT/artifacts/pe-radio-production/pe-tx-code.h" \
     
 saved_dir=$(pwd)
 cd "$TREE/package"
-sh "$PORT/scripts/update-packages.sh"
+bash "$PORT/scripts/update-packages.sh"
 cd "$saved_dir" 
 
 sh "$PORT/scripts/sync-overlay.sh" "$TREE"
