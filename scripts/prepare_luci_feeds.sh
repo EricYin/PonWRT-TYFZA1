@@ -9,5 +9,5 @@ cd "$TREE"
 if [ -n "${TYFZA1_PROXY:-}" ]; then
     export http_proxy=$TYFZA1_PROXY https_proxy=$TYFZA1_PROXY
 fi
-./scripts/feeds update packages luci
+./scripts/feeds update -a
 printf '%s\n' "$PACKAGES" | xargs ./scripts/feeds install cgi-io luasrcdiet luci
