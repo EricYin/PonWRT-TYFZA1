@@ -66,4 +66,7 @@ else
         --stock "${TYFZA1_STOCK_INPUTS:-$PROJECT/analysis/private/live-files}"
     python3 "$PROJECT/tools/prepare_wifi_runtime.py" "$TREE/files" --openwrt-tree "$TREE"
 fi
-make -j"$JOBS" world
+make -j"$JOBS" world || {
+    echo "Parallel world build failed; retrying with -j1 V=s to capture the real error" >&2
+    make -j1 V=s world
+}
