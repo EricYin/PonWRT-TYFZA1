@@ -3,7 +3,7 @@
 ### 本版内容
 
 - 合入上游 v0.8.0-beta：Wi-Fi 硬件加速 1.34 Gbps、官方 APK 源、可写空间 34.6 MiB、原生 U-Boot 安装。
-- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core + sing-box）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
 
 ## v0.8.0-beta
 
