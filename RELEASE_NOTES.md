@@ -1,3 +1,10 @@
+## v0.7.1-custom
+
+### 本版内容
+
+- 合入上游 v0.7.0-alpha：双板支持、新 ONU 界面、Argon 主题与简体中文。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
 ## v0.7.0-alpha
 
 ### 本版更新
