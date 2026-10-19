@@ -1,3 +1,10 @@
+## v0.8.3-custom
+
+### 本版内容
+
+- 新增多 Wan 分流：mwan3 + luci-app-mwan3（含中文界面），依赖已由官方 compat 清单覆盖。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
 ## v0.8.2-custom
 
 ### 本版内容
