@@ -1,3 +1,10 @@
+## v0.8.4-custom
+
+### 本版内容
+
+- 多 Wan 分流切换为原生 nftables 版 mwan3（dl12345/mwan3 3.6.12，openwrt-25.12 分支，GPG 签名提交），替代官方 iptables 版；规则直接运行在内核 nft 表，配 nftables-json 变体。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
 ## v0.8.3-custom
 
 ### 本版内容
