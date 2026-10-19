@@ -1,4 +1,13 @@
-## v0.8.6-custom
+## v0.8.7-custom
+
+### 本版内容
+
+- 修复蓝口（port4）10/100 Mbps 链路无流量问题：MAC 回调不再在低速时错误切到 MII，port4 全速率保持 GMII（厂商 SGMII PCS 要求），内含 80 组端口/速率/双工回归测试。
+- 修复 2.5G 版升级时误报 invalid sysupgrade file 的问题（双板共享同一 sysupgrade 归档目录，校验规则同时接受两种板卡身份）。另含 legacy 2.5G 板补救脚本 fix_legacy_2p5g_upgrade.sh。
+- 多 Wan 分流：原生 nftables 版 mwan3（dl12345/mwan3 3.6.12）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.6-custom（未发布：构建中止，内容并入 v0.8.7-custom）
 
 ### 本版内容
 
