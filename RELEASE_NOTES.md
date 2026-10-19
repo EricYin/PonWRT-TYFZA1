@@ -1,3 +1,11 @@
+## v0.8.6-custom
+
+### 本版内容
+
+- 修复 2.5G 版升级时误报 invalid sysupgrade file 的问题（双板共享同一 sysupgrade 归档目录，校验规则改为同时接受两种板卡身份）。另含 legacy 2.5G 板补救脚本 fix_legacy_2p5g_upgrade.sh 与新的 CI 板卡校验步骤。
+- 多 Wan 分流：原生 nftables 版 mwan3（dl12345/mwan3 3.6.12）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
 ## v0.8.5-custom
 
 ### 本版内容
