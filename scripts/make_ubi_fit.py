@@ -28,11 +28,11 @@ parameters = {item['name']: item['lzma_alone'] for item in contract['images']
 (out / 'boot.cmd').write_text('''if test "${root_mtd}" = "31:12"; then
     setenv tyfza1_slot 1
     setenv tyfza1_root ubi_r1
-    setenv tyfza1_block /dev/ubiblock0_7
+    setenv tyfza1_block /dev/ubiblock0_6
 else
     setenv tyfza1_slot 0
     setenv tyfza1_root ubi_r0
-    setenv tyfza1_block /dev/ubiblock0_4
+    setenv tyfza1_block /dev/ubiblock0_3
 fi
 setenv bootargs "earlycon console=ttyS0,115200n8 clk_ignore_unused maxcpus=4 ubi.mtd=ubi_device ubi.block=0,${tyfza1_root} root=${tyfza1_block} rootfstype=squashfs ro tyfza1.slot=${tyfza1_slot}"
 ''' + board_boot_command())
