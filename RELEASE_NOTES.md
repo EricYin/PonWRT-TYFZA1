@@ -1,3 +1,14 @@
+## v0.8.1-pt1570-input
+
+### 本版内容
+
+- 打开 `CONFIG_INPUT` / `CONFIG_INPUT_EVDEV`。之前内核完全没编 INPUT，
+  导致 `gpio-button-hotplug` 只能申请到 GPIO，无法注册按键设备
+  （`/sys/class/input` 不存在，按了没反应）。
+- 保留 v0.8.1-pt1570-keys 的三个按键定义（reset=GPIO8、灯光=GPIO71、WPS=GPIO67）。
+- PON：BOSA 识别失败不再中止初始化；`onu_mac` 回退到 ELAN MAC；
+  默认模式 xgpon。
+
 ## v0.8.1-pt1570-keys
 
 ### 本版内容
