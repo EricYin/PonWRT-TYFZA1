@@ -13,7 +13,7 @@ PROJECT = Path(__file__).resolve().parents[1]
 UPGRADE = PROJECT / 'port/overlay/target/linux/rtl9617c/base-files/lib/upgrade'
 LEB = 126976
 OEM = [
-    ('ubi_Config', 50), ('ubi_fpga', 34), ('ubi_DTB0', 3),
+    ('ubi_Config', 50), ('ubi_DTB0', 3),
     ('ubi_k0', 50), ('ubi_r0', 265), ('ubi_DTB1', 3),
     ('ubi_k1', 50), ('ubi_r1', 265), ('ubi_framework1', 133),
     ('ubi_framework2', 133), ('ubi_apps', 793),
@@ -134,10 +134,10 @@ class StorageTests(unittest.TestCase):
                     self.assertEqual(volume['used'], ebs * LEB)
         for event in self.state['events']:
             if event[0] in ('ubirsvol', 'ubirmvol', 'ubimkvol'):
-                self.assertIn(event[event.index('-N') + 1], [f'ubi_r{(rootid-4)//3}', 'rootfs_data'])
+                self.assertIn(event[event.index('-N') + 1], [f'ubi_r{(rootid-3)//3}', 'rootfs_data'])
 
     def prepare_upgrade(self, size=8067048, slot=1, success=True):
-        (self.root / 'cmdline').write_text(f'root=/dev/ubiblock0_{4+3*slot} tyfza1.slot={slot}')
+        (self.root / 'cmdline').write_text(f'root=/dev/ubiblock0_{3+3*slot} tyfza1.slot={slot}')
         self.save()
         return self.run_shell(f'''
             . ./platform.sh
@@ -157,45 +157,45 @@ class StorageTests(unittest.TestCase):
         (self.root / 'fw_env.config').touch()
         (self.root / 'install.sh').write_text(self.rewrite((PROJECT / 'scripts/install_ubi_telnet.sh').read_text()))
         self.run_shell('sh ./install.sh')
-        self.assertEqual(self.state['vols']['7']['ebs'], 64)
+        self.assertEqual(self.state['vols']['6']['ebs'], 64)
         self.assertEqual(self.state['vols']['11']['ebs'], 344)
         self.assertEqual(self.state['free'], 0)
-        self.check_oem(7)
+        self.check_oem(6)
 
     def test_sysupgrade_allocates_remaining_space(self):
         self.state['vols']['11'] = dict(name='rootfs_data', ebs=133, used=1000000)
         self.state['free'] -= 133
         self.prepare_upgrade()
-        self.assertEqual(self.state['vols']['7']['ebs'], 64)
+        self.assertEqual(self.state['vols']['6']['ebs'], 64)
         self.assertEqual(self.state['vols']['11']['ebs'], 344)
-        self.check_oem(7)
+        self.check_oem(6)
 
     def test_larger_future_image_grows_root_before_writing(self):
-        self.state['vols']['4'].update(ebs=64, used=8067048)
+        self.state['vols']['3'].update(ebs=64, used=8067048)
         self.state['vols']['11'] = dict(name='rootfs_data', ebs=344, used=20000000)
         self.state['free'] = 0
         self.prepare_upgrade(size=24000000, slot=0)
-        self.assertEqual(self.state['vols']['4']['ebs'], 190)
+        self.assertEqual(self.state['vols']['3']['ebs'], 190)
         self.assertEqual(self.state['vols']['11']['ebs'], 218)
-        self.check_oem(4)
+        self.check_oem(3)
 
     def test_repeated_upgrade_keeps_all_available_space(self):
         self.prepare_upgrade()
         first = self.state['vols'].copy()
         self.prepare_upgrade()
         self.assertEqual(self.state['vols'], first)
-        self.check_oem(7)
+        self.check_oem(6)
 
     def test_static_root_can_shrink_after_old_image_is_cleared(self):
-        self.state['vols']['7']['static'] = True
+        self.state['vols']['6']['static'] = True
         self.prepare_upgrade()
-        self.assertEqual(self.state['vols']['7']['ebs'], 64)
+        self.assertEqual(self.state['vols']['6']['ebs'], 64)
 
     def test_resize_failure_stops_before_creating_data(self):
         self.env['UBI_TEST_FAIL'] = 'ubirsvol'
         self.prepare_upgrade(success=False)
         self.assertNotIn('11', self.state['vols'])
-        self.assertEqual(self.state['vols']['7']['ebs'], 265)
+        self.assertEqual(self.state['vols']['6']['ebs'], 265)
 
     def test_oversize_and_no_space_fail_before_mutation(self):
         self.prepare_upgrade(size=33648641, success=False)
@@ -218,14 +218,14 @@ class StorageTests(unittest.TestCase):
         self.env['UBI_TEST_FAIL'] = 'ubirmvol'
         self.prepare_upgrade(success=False)
         self.assertEqual([e[0] for e in self.state['events']], ['remove_block', 'ubirmvol'])
-        self.assertEqual(self.state['vols']['7']['ebs'], 265)
+        self.assertEqual(self.state['vols']['6']['ebs'], 265)
 
     def test_installer_data_growth_preserves_existing_ubifs(self):
-        self.state['vols']['7'].update(ebs=64, used=8067048)
+        self.state['vols']['6'].update(ebs=64, used=8067048)
         self.state['vols']['11'] = dict(name='rootfs_data', ebs=133, used=10000000)
         self.state['free'] = 211
         self.save()
-        self.run_shell('. ./tyfza1-storage.sh; tyfza1_plan_storage ubi0 ubi0_7 8067048; tyfza1_grow_data ubi0')
+        self.run_shell('. ./tyfza1-storage.sh; tyfza1_plan_storage ubi0 ubi0_6 8067048; tyfza1_grow_data ubi0')
         self.assertEqual(self.state['vols']['11'], dict(name='rootfs_data', ebs=344, used=10000000))
 
 

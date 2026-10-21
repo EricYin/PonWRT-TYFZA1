@@ -6,7 +6,7 @@ START=09
 start() {
 	local source=/tmp/tyfza1-factory-source
 	local runtime=/tmp/tyfza1-factory
-	local device calibration address
+	local device calibration address mounted=0
 
 	# Invalidate the previous import before attempting to access the factory volume.
 	rm -rf "$runtime" /var/run/tyfza1-factory
@@ -24,14 +24,29 @@ start() {
 		done
 	fi
 	mkdir -p "$source"
-	mount -t ubifs -o ro ubi0:ubi_Config "$source" || return $?
+	if mount -t ubifs -o ro ubi0:ubi_Config "$source" 2>/dev/null; then
+		mounted=1
+		echo "tyfza1-factory: identity source = ubi_Config" > /dev/kmsg
+	elif [ -f /etc/tyfza1-factory/config_hs.xml ] &&
+	     [ -f /etc/tyfza1-factory/config.xml ]; then
+		# Per-unit override. Deliberately not shipped in the image: shipping it
+		# would make every flashed unit import the builder's MAC/SN/calibration.
+		rm -rf "$source"
+		source=/etc/tyfza1-factory
+		echo "tyfza1-factory: WARNING using local override /etc/tyfza1-factory (ubi_Config unreadable)" > /dev/kmsg
+	else
+		rm -rf "$source"
+		echo "tyfza1-factory: ubi_Config unreadable and no local override; factory identity NOT imported" > /dev/kmsg
+		echo "tyfza1-factory: import this unit's own config.xml/config_hs.xml into /etc/tyfza1-factory" > /dev/kmsg
+		return 1
+	fi
 	mkdir -p /tmp/log
 	/usr/share/tyfza1/factory.uc "$source" / > /tmp/log/tyfza1-factory.log 2>&1
 	local result=$?
 	while IFS= read -r line; do
 		printf 'tyfza1-factory: %s\n' "$line" > /dev/kmsg
 	done < /tmp/log/tyfza1-factory.log
-	umount "$source"
+	[ "$mounted" = 1 ] && umount "$source"
 	# NI registers belong to the preceding boot, not to the factory identity.
 	# Like stock, all LAN switch ports share ELAN; netifd applies user overrides later.
 	if [ -f "$runtime/lan_mac" ]; then

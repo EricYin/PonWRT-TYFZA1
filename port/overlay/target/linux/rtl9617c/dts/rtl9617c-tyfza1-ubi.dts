@@ -2,7 +2,12 @@
 #include "rtl9617c-tyfza1-pcie.dts"
 #include "rtl9617c-tyfza1-usb.dtsi"
 
-/ { model = "Tianyi TYFZA1 (RTL9617C UBI)"; };
+/* Model is what /tmp/sysinfo/model and the LuCI board name show. This
+ * branch targets PT1570-R10 only, so do not advertise it as TYFZA1.
+ * The compatible string stays "tianyi,tyfza1": the drivers match on it,
+ * and the UBI volume IDs (ubi0_3/ubi0_6 vs ubi0_4/ubi0_7) are what
+ * actually tell the two boards apart at upgrade time. */
+/ { model = "YHTC PT1570-R10 (RTL9617C UBI)"; };
 
 &qspi {
 	flash@0 {

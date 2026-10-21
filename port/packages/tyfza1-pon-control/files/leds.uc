@@ -123,10 +123,15 @@ while (true) {
 		let text = readfile('/var/run/pon-omci');
 		let omci = text == null ? null : fields(text);
 		let auth = live(omci, now) && omci.session == session ? +omci.auth : 0;
-		key = mode + ':' + session + ':' + auth;
+		/* state must be part of the key: at boot the state machine is still
+		 * in O1/O2 while auth is already 0, so without it the O5 transition
+		 * never invalidates the cache and the LED keeps blinking forever. */
+		key = mode + ':' + session + ':' + auth + ':' + state;
 		if (key != auth_key) {
 			if (link.enabled == '1' && state == 'O5')
-				current = auth == 1 ? 1 : auth > 1 ? 0 : 250;
+				/* China Mobile authenticates by serial number and never reports an
+				 * OMCI auth result, so treat an established path set as success. */
+				current = (auth == 1 || (omci != null && +omci.paths > 0 && +omci.error == 0)) ? 1 : auth > 1 ? 0 : 250;
 			auth_key = key;
 		}
 	}

@@ -1,3 +1,5 @@
 config pon 'pon'
 	option enabled '1'
 	option llid_count '1'
+	# PT1570-R10 is XG-PON, same as TYFZA1; the stock value is already correct.
+	option mode 'xgpon'

@@ -119,8 +119,46 @@ static int rtl_bosa_configure(struct rtl_bosa *bosa)
 	if (ret)
 		goto unlock;
 	ret = rtl_bosa_identify(bosa);
-	if (ret)
+	if (ret) {
+		/* UX3361-class MSA parts keep their calibration in an on-module
+		 * EEPROM and do not implement the Semtech page-0x7f identity
+		 * registers, so identify() reads 0xff and returns -ENODEV. Stock
+		 * behaves the same way: it detects the part first, then skips
+		 * initialisation because an EEPROM is present.
+		 *
+		 * Do not assume that on identify failure alone - a missing or dead
+		 * module also reads 0xff. Probe the standard MSA DDM block instead:
+		 * a live part reports real temperature/voltage bytes, while an
+		 * absent part floats the bus high and returns 0xff everywhere.
+		 */
+		u8 probe[4];
+		bool alive = false;
+		unsigned int i;
+
+		/* identify() left the page pointer wherever it stopped probing;
+		 * restore it before touching the DDM block. */
+		rtl_bosa_write(bosa, 0x7f, page);
+
+		for (i = 0; i < ARRAY_SIZE(probe); i++) {
+			if (rtl_bosa_read(bosa, 0x60 + i, &probe[i]))
+				break;
+			if (probe[i] != 0xff)
+				alive = true;
+		}
+		if (!alive) {
+			dev_err(&bosa->client->dev,
+				"BOSA: no identity match and the DDM block reads 0xff; module missing or unresponsive\n");
+			ret = -ENODEV;
+			goto restore;
+		}
+		dev_info(&bosa->client->dev,
+			 "BOSA: MSA part with external EEPROM (no Semtech identity); skipping host calibration\n");
+		bosa->model = 0;
+		bosa->eeprom = true;
+		bosa->configured = true;
+		ret = 0;
 		goto restore;
+	}
 	if (!bosa->eeprom) {
 		ret = request_firmware_direct(&calibration, "realtek/rtl9617c/bosa-calibration.bin", &bosa->client->dev);
 		if (ret)

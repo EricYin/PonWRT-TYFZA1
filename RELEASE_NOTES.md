@@ -1,9 +1,380 @@
+## v0.8.1-pt1570-lan7
+
+### 本版内容
+
+- **视图文件改回干净名字**。前几版为了绕开浏览器缓存，把状态页视图依次改名
+  成 `status-v2/v3/v4/v5/v6`。那只是调试期的手段，不该留在仓库里：
+
+  正式固件每次构建 `DISTRIB_REVISION` 都会变，`luci.js` 拼出的
+  `?v=` 跟着变，所有静态资源 URL 一起变，缓存自然失效。
+
+  现在恢复为 `view/tyfza1/overview.js`，`menu.d` 的 `path` 同步改回
+  `tyfza1/overview`。
+
+- **去掉视图里的两处调试兼容代码**：
+  - CSS 链接重指（`link.href = ... + '?v=' + CSS_V`）
+  - 描述节点的 DOM 搬移（`head.parentNode.insertBefore(desc, ...)`）
+
+  这两处原本是为了在 `ui.js` / `status.js` 被缓存的情况下让改动生效。
+  现在源头都改好了，视图直接 `return ui.page(...)` 即可。
+
+- **CSS 版本改为模块级时间戳**：`status.js` 里
+  `var CSS_VERSION = Date.now()`，改完样式刷新页面就能看到，
+  不用再手工改版本号。
+
+- **板型兜底值改为 PT1570-R10**（原来写的是 `'TYFZA1'`）。
+
+- 含 `v0.8.1-pt1570-lan4` 的全部内容：LAN 映射回滚、升级检查收紧为
+  PT1570 专属、`model` 改为 `YHTC PT1570-R10`、测试夹具改 PT1570 布局、
+  描述样式对齐 Argon。
+
+## v0.8.1-pt1570-lan6
+
+### 本版内容
+
+- **修正 `menu.d` 指向**。`v0.8.1-pt1570-lan5` 的产物是坏的：
+  视图文件已改名 `status-v5.js` → `status-v6.js`，但 `menu.d` 里的
+  `path` 还停在 `tyfza1/status-v5`，**ONU 运行状态页会 404**。
+
+  那次改名只提交了文件、漏了菜单配置，改动一直留在工作区没进 tag。
+
+  现在 `path` 与文件一致：`tyfza1/status-v6`。
+
+- **描述文字样式对齐 Argon**（随本次一起进构建）：
+  `font-size: small`、`line-height: 1.5`、`padding: 0 var(--section-inset)`、
+  颜色继承 `--text-strong`，与主题的 `.cbi-map-descr` 完全一致。
+
+- **样式表版本改为动态**（`Date.now()`），以后改 CSS 不必再换文件名。
+
+- 含 `v0.8.1-pt1570-lan4` 的全部内容：LAN 映射回滚、升级检查收紧为
+  PT1570 专属、`model` 改为 `YHTC PT1570-R10`、测试夹具改 PT1570 布局。
+
+## v0.8.1-pt1570-lan5
+
+### 本版内容
+
+- **修正 `test_ubi_storage.py` 的夹具**。上一版把升级检查收紧为 PT1570 专属
+  （只认 `ubi0_3` / `ubi0_6`）后，构建在「Verify storage migration」这一步
+  挂了 7 个用例：
+
+  ```
+  AssertionError: False != True :
+  Unexpected root volume: ubi0_7 - this image is for PT1570-R10 (ubi0_3/ubi0_6) only
+  ```
+
+  原因是测试夹具模拟的是 **TYFZA1 布局**（`OEM` 列表里有 `ubi_fpga`，
+  root 落在索引 4/7）。夹具改为 PT1570 布局：
+
+  - `OEM` 去掉 `('ubi_fpga', 34)`，其后所有卷 ID 前移一位
+  - root0/root1 断言由 `vols['4']` / `vols['7']` 改为 `vols['3']` / `vols['6']`
+  - `(rootid-4)//3` → `(rootid-3)//3`
+  - `root=/dev/ubiblock0_{4+3*slot}` → `{3+3*slot}`
+
+- 含上一版全部内容：升级检查收紧、`model` 改为 `YHTC PT1570-R10`、
+  LAN 映射回滚、ONU 界面统一、DDM 显示、BOSA 存活探测、按键 bank3。
+
+## v0.8.1-pt1570-lan4
+
+### 本版内容
+
+- **升级检查收紧为 PT1570 专属**。上一版让 `tyfza1-storage.sh` 同时接受
+  `ubi0_3/ubi0_6`（PT1570）和 `ubi0_4/ubi0_7`（TYFZA1），这是错的：
+
+  两块板子的 DTS `compatible` 都是 `tianyi,tyfza1`，
+  `nand_do_platform_check()` 根本区分不了。**UBI 卷号是唯一可靠的判别依据**
+  （PT1570 没有 `ubi_fpga`，所有 ID 前移一位）。放宽之后，PT1570 的固件
+  刷到 TYFZA1 上会通过检查，然后写到错误的卷。
+
+  现在只接受 `ubi0_3/ubi0_6`，报错文案也点明：
+
+  ```
+  Unexpected root volume: ubi0_3 - this image is for PT1570-R10 (ubi0_3/ubi0_6) only
+  ```
+
+  TYFZA1 硬件请用 `tyfza1-custom` 分支。
+
+- **系统信息里的型号改为 PT1570**。`rtl9617c-tyfza1-ubi.dts` 的 `model`
+  从 `Tianyi TYFZA1 (RTL9617C UBI)` 改成 `YHTC PT1570-R10 (RTL9617C UBI)`，
+  `/tmp/sysinfo/model` 和 LuCI 的板型显示都会跟着变。
+
+  `compatible` 保持 `tianyi,tyfza1` 不动——驱动靠它匹配，改了会起不来。
+
+- 含上一版（`v0.8.1-pt1570-lan3`）的全部内容：LAN 映射回滚、
+  sysupgrade 卷号修复、ONU 界面统一、DDM 显示、BOSA 存活探测、
+  按键 bank3、`keep.d` 保护 factory 身份。
+
+## v0.8.1-pt1570-lan3
+
+### 本版内容
+
+- **回滚 LAN 映射反转（重要）**。上一版把 `phy-handle` 指向 `phy3`、
+  `realtek,lan-phys` 反转为 `<&phy3 &phy2 &phy1 &phy0>`，想纠正面板顺序，
+  结果把数据通路打断了：
+
+  ```
+  lan4: Link is Up - 1Gbps/Full - flow control off
+  br-lan: port 4(lan4) entered forwarding state
+  rx_packets = 0        <- 链路通了，但一个包都收不到
+  ```
+
+  **MAC port 与 PHY 是板上固定连线的**：port 0 只能连 phy0（mdio:01），
+  port 3 只能连 phy3（mdio:04）。把 `phy-handle` 指到 phy3 只是让 port 0
+  和错误的 PHY 协商出了链路，数据通路从未接通。
+
+  而且 `rtl_register_lans()` 里 **port 0 不读 `lan-phys`，它用 `phy-handle`**，
+  所以只反转 `lan-phys` 会让 port 0 和 port 3 都拿到 phy0，第二个
+  `phy_attach_direct()` 直接 `-EEXIST`，LAN4 根本注册不上。
+
+  现已恢复 `<&phy0 &phy1 &phy2 &phy3>` 并去掉 `phy-handle` 覆盖。
+  **面板顺序由硬件决定：Linux `lan1` 就是丝印 `LAN4`。**
+  要改接口名只能改驱动（`rtl_register_lan()` 里按 port 拼接口名的那行），
+  不是设备树能解决的。
+
+- **修正 sysupgrade 的 root 卷号检查**。`tyfza1-storage.sh` 硬编码期望
+  `ubi_r0 = ubi0_4` / `ubi_r1 = ubi0_7`（TYFZA1 布局）。PT1570-R10 没有
+  `ubi_fpga` 卷，所有 ID 前移一位，实际是 `ubi0_3` / `ubi0_6`，于是整包升级
+  被拒绝：
+
+  ```
+  Unexpected TYFZA1 root volume: ubi0_3
+  Image check failed.
+  ```
+
+  现在同时接受两种布局（`_3/_4` 与 `_6/_7`）。
+
+- **ONU 界面统一**（7 个页面）：
+  - 页面标题渲染为 Argon 风格的圆角卡片
+  - 描述文字移到卡片外，`font-size: small`、`line-height: 1.5`、
+    `padding: 0 var(--section-inset)`、颜色继承 `--text-strong`
+    ——完全照搬主题的 `.cbi-map-descr`
+  - 状态页瓦片收回到 5 个（收/发光功率、温度、光口发射、光学校准），
+    电压、偏置电流等移入「光模块详情」折叠
+  - 去掉顶级 `ONU` 菜单的 ACL 依赖
+
+- 含之前所有内容：DDM 显示、BOSA 存活探测、按键 bank3（99/103）、
+  `keep.d` 保护 factory 身份、FIT 槽位判据 `31:11`。
+
+## v0.8.1-pt1570-lan2
+
+### 本版内容
+
+- **修正 LAN4 初始化失败（-EEXIST）**。上一版只反转了 `realtek,lan-phys`，
+  但 `rtl_register_lans()` 里 **port 0 根本不读 lan-phys，它用的是 `phy-handle`**：
+
+  ```c
+  phy = of_parse_phandle(parent->of_node,
+      port == priv->port ? "phy-handle" : "realtek,lan-phys",
+      port == priv->port ? 0 : port);
+  ```
+
+  `xram-lan.dts` 里 `realtek,port = <0>` 且 `phy-handle = <&phy0>`，
+  所以反转后 port0 仍是 phy0、port3 也是 phy0，第二次 `phy_attach_direct()`
+  报 `sysfs: cannot create duplicate filename '.../mdio:01'`，lan4 起不来。
+
+  现在 `phy-handle` 一起指向 `&phy3`：
+
+  | port | 来源 | PHY | 面板 |
+  |---|---|---|---|
+  | 0 | `phy-handle` | phy3 (mdio:04) | LAN1 |
+  | 1 | `lan-phys[1]` | phy2 (mdio:03) | LAN2 |
+  | 2 | `lan-phys[2]` | phy1 (mdio:02) | LAN3 |
+  | 3 | `lan-phys[3]` | phy0 (mdio:01) | LAN4 |
+
+  `lan-phys[0]` 从不被读取。2.5G 变体显式覆盖 `phy-handle = <&phy0>` 保持原顺序。
+
+- **修正注册灯常闪**。`leds.uc` 的缓存 key 是 `mode:session:auth`，**不含 state**。
+  开机时状态机还在 O1/O2，此时 key 就被固定；之后进入 O5 但 auth 一直是 0
+  （中国移动按 SN 认证，OMCI 不上报 auth 结果），key 不变 → 永远不重算 → 一直闪。
+  key 改为 `mode:session:auth:state`。
+
+- **sysupgrade 保留 `/etc/tyfza1-factory`**。新增
+  `lib/upgrade/keep.d/tyfza1-factory`，否则整包升级会丢掉本机 MAC/SN/校准，
+  而 `tyfza1-factory` 已不再回退到镜像内副本。
+
+- 含之前所有内容：DDM 显示、BOSA 存活探测、按键 bank3（99/103）、FIT 槽位 31:11。
+
+## v0.8.1-pt1570-ddm2
+
+### 本版内容
+
+- 修正 2.5G 变体的按键 fixture：`btn-wifi` 继承主 DTSI 的 bank3 pin7（GPIO 103），
+  不是旧的 67。上一版构建因 `test_board_variants.py` 断言失败而中断。
+- FIT 槽位判据修正：`31:12` → `31:11`（PT1570 只有 ubi0_0..ubi0_10）。
+- factory 数据源改为显式三段判断，不再静默回退到固件内副本。
+- 含 DDM 显示、BOSA 存活探测、LAN 顺序、注册灯、按键 bank3 修正。
+
+## v0.8.1-pt1570-ddm
+
+### 本版内容
+
+- **补上光模块 DDM 显示**。之前页面只写"光功率 / 温度尚无读取接口"，
+  因为后端只暴露了 `optical`（状态位），DDM 数据在 `transceiver` 里没人读。
+  现在：
+  - 后端增加 `transceiver` 字段
+  - 前端按标准 MSA A2 换算显示五项读数：
+
+    | 项目 | 换算 | 典型值 |
+    |---|---|---|
+    | 温度 | `raw / 256` °C | 36.3 °C |
+    | 电压 | `raw / 10000` V | 3.35 V |
+    | 偏置电流 | `raw / 500` mA | 7.82 mA |
+    | 发送光功率 | `10*log10(raw/10000)` dBm | 3.52 dBm |
+    | 接收光功率 | `10*log10(raw/10000)` dBm | −18.6 dBm |
+
+- 含 BOSA 存活探测降级、LAN 顺序、注册灯、按键 bank3 修正。
+
+## v0.8.1-pt1570-bosa2
+
+### 本版内容
+
+- **BOSA 降级前先做存活探测**（修正上一版过于宽松的处理）。
+  identity 探测失败后不再直接当作"外部 EEPROM 模式"，而是：
+
+  1. 恢复页指针（`identify()` 会把它留在 0xff 或 2）
+  2. 读标准 MSA DDM 区 `0x60..0x63`（温度 / 电压）
+  3. **全部读回 0xff → 判定模块缺失或无响应，仍然返回 -ENODEV**
+  4. 只要有任一字节非 0xff → 确认是带 EEPROM 的 MSA 器件，
+     跳过主机侧校准（`eeprom=1 configured=1 error=0`）
+
+  这样真实的 BOSA 故障仍会报错，只有"器件活着但不认 Semtech 身份协议"
+  的情况才降级。对应原厂 `Detecting UX3361 ... EEPROM exists, do NOT do
+  initialization` 的行为。
+
+- 含 LAN 顺序纠正、注册灯修正、按键 bank3 修正。
+
+## v0.8.1-pt1570-bosa
+
+### 本版内容
+
+- **BOSA identity 探测失败不再报错**。UX3361 用外部 EEPROM 自带校准，
+  不实现 Semtech 的 page-0x7f identity 寄存器，`identify()` 读回 0xff 后
+  返回 -ENODEV，导致：
+  - `bosa.error=-19`，状态页判定为"初始化异常"
+  - `bosa.configured=0`，显示"光学校准未就绪"
+
+  现在 identity 失败时按"外部 EEPROM 模式"处理（`eeprom=1 configured=1 error=0`），
+  因为这类光模块本来就不需要主机侧校准。
+
+- 含上一版内容：LAN 顺序纠正、注册灯不再误闪、按键 bank3 修正。
+
+## v0.8.1-pt1570-lan-fix
+
+### 本版内容
+
+- **LAN 口顺序纠正**。面板丝印 LAN1..LAN4 从左到右，但 PHY/port 顺序相反
+  （port 0 驱动面板 LAN4）。`rtl9617c-tyfza1-ni.dts` 反转 `realtek,lan-phys`，
+  使 Linux `lan1` 对应面板 LAN1；`94-tyfza1-leds` 的 `lan_devs` 同步反转为
+  `lan4 lan3 lan2 lan1`，保证 `LED_EPHY0`（物理在面板 LAN4）绑定 `lan4`。
+
+- **注册灯不再误闪**。中国移动按 SN 认证，`pon-omcid` 不会上报 OMCI auth 结果
+  （`/var/run/pon-omci` 里 `auth=0`，但 `paths=6` 业务已通）。
+  `leds.uc` 原来只看 `auth == 1`，导致 O5 状态下仍闪 250 模式。
+  现在把"业务路径已建立且无错误"也视为注册成功，灯常亮。
+
+- 保留三个按键修正（bank3: lights=99, wifi=103）与 PON 相关修复。
+
+## v0.8.1-pt1570-keys2
+
+### 本版内容
+
+- **修正三个按键的 GPIO 编号**。通过 U-Boot 直接读取输入寄存器、
+  逐键按压确认：
+  - 复位 `bank0 pin8` = **GPIO 8**
+  - 灯光 `bank3 pin3` = **GPIO 99**
+  - 无线 `bank3 pin7` = **GPIO 103**
+
+  之前的 71 / 67 是错的。原厂 FDT 里写作 `<&gpio2 7>` / `<&gpio2 3>`，
+  但该 phandle 实际解析到 `bank@3`（节点名与 ranges 索引错位），
+  所以读 bank2 永远是 0。
+
+- 保留 `CONFIG_INPUT` 与 PON 修复（BOSA 容错、onu_mac 回退、xgpon 默认）。
+
+## v0.8.1-pt1570-input
+
+### 本版内容
+
+- 打开 `CONFIG_INPUT` / `CONFIG_INPUT_EVDEV`。之前内核完全没编 INPUT，
+  导致 `gpio-button-hotplug` 只能申请到 GPIO，无法注册按键设备
+  （`/sys/class/input` 不存在，按了没反应）。
+- 保留 v0.8.1-pt1570-keys 的三个按键定义（reset=GPIO8、灯光=GPIO71、WPS=GPIO67）。
+- PON：BOSA 识别失败不再中止初始化；`onu_mac` 回退到 ELAN MAC；
+  默认模式 xgpon。
+
+## v0.8.1-pt1570-keys
+
+### 本版内容
+
+- 补齐 PT1570-R10 前面板三个按键：复位（GPIO8）、灯光（GPIO71）、无线/WPS（GPIO67），
+  GPIO 编号取自原厂运行中 FDT 的 `/gpio-keys` 节点。
+- 原定义只声明了一个 `lights_toggle`，且误用了无线键的 GPIO67。
+- 2.5G 变体的灯光键覆盖同步为 GPIO66。
+- 其余内容与 v0.8.1-pt1570 相同。
+
+## v0.8.1-pt1570
+
+### 本版内容
+
+- 新增 XTX XT26G02C（厂商 0x0B / 器件 0x12）到内核 SPI-NAND 芯片表，供中国移动 PT1570-R10 使用（2048 页 / 128B OOB / 128KB 块 / 2 Gbit）。
+- 基于 v0.8.1-beta，其余内容与该版本相同。
+
+## v0.8.7-custom
+
+### 本版内容
+
+- 修复蓝口（port4）10/100 Mbps 链路无流量问题：MAC 回调不再在低速时错误切到 MII，port4 全速率保持 GMII（厂商 SGMII PCS 要求），内含 80 组端口/速率/双工回归测试。
+- 修复 2.5G 版升级时误报 invalid sysupgrade file 的问题（双板共享同一 sysupgrade 归档目录，校验规则同时接受两种板卡身份）。另含 legacy 2.5G 板补救脚本 fix_legacy_2p5g_upgrade.sh。
+- 多 Wan 分流：原生 nftables 版 mwan3（dl12345/mwan3 3.6.12）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.6-custom（未发布：构建中止，内容并入 v0.8.7-custom）
+
+### 本版内容
+
+- 修复 2.5G 版升级时误报 invalid sysupgrade file 的问题（双板共享同一 sysupgrade 归档目录，校验规则改为同时接受两种板卡身份）。另含 legacy 2.5G 板补救脚本 fix_legacy_2p5g_upgrade.sh 与新的 CI 板卡校验步骤。
+- 多 Wan 分流：原生 nftables 版 mwan3（dl12345/mwan3 3.6.12）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.5-custom
+
+### 本版内容
+
+- 多 Wan 分流正式切换为原生 nftables 版 mwan3（dl12345/mwan3 3.6.12）：构建时将仓库克隆并重嵌套进子目录，经 src-link feed 置于 packages 之前，覆盖官方 iptables 版；规则直接运行在内核 nft 表，配 nftables-json 变体。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.4-custom
+
+### 本版内容
+
+- 多 Wan 分流：mwan3 + LuCI 应用（本版实际为官方 iptables 版——尝试切换 dl12345/mwan3 nft 版时因该仓库根级布局无法被 OpenWrt feed 扫描器索引而静默回退，切换在 v0.8.5-custom 完成）。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.3-custom
+
+### 本版内容
+
+- 新增多 Wan 分流：mwan3 + luci-app-mwan3（含中文界面），依赖已由官方 compat 清单覆盖。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
+## v0.8.2-custom
+
+### 本版内容
+
+- 合入上游 v0.8.1-beta：OMCC 版本选择（0xb0/0x86 兼容模式）、Class 332 增强认证开关、双板四 LAN 口映射修复。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
+
 ## v0.8.1-beta
 
 - 修复 2.5G 版升级时误报 invalid sysupgrade file 的问题。
 - 修复 2.5G 版蓝口连接百兆网卡时有链路却无法收发、获取 IP 的问题。
 - 增加 OMCC 版本选择，支持默认 0xb0 与兼容模式 0x86。
 - 增加独立的 Class 332 增强认证开关，默认保持启用。
+
+## v0.8.1-custom
+
+### 本版内容
+
+- 合入上游 v0.8.0-beta：Wi-Fi 硬件加速 1.34 Gbps、官方 APK 源、可写空间 34.6 MiB、原生 U-Boot 安装。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
 
 ## v0.8.0-beta
 
@@ -31,6 +402,12 @@
 - 更新 Telnet 安装包和安装说明。
 - GitHub Actions 支持同版本重新构建，并加入双板型端口、故障隔离和统计映射检查。
 
+## v0.7.1-custom
+
+### 本版内容
+
+- 合入上游 v0.7.0-alpha：双板支持、新 ONU 界面、Argon 主题与简体中文。
+- 自用组件：WireGuard、iperf3、SmartDNS、PassWall（xray-core）。
 ## v0.7.0-alpha
 
 ### 本版更新
@@ -44,6 +421,10 @@
 
 - 两种板型的冷启动、灯态、2.5G 持续双向收发及 WPA3/HE40 仍待实机验证。
 - 开启 Wi-Fi 流量硬件加速后，Wi-Fi 最高吞吐只有约 500 Mbps，待进一步修复。
+
+## v0.6.1
+
+### 添加自用包
 
 ## v0.6.0-alpha
 

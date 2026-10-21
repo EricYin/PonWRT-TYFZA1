@@ -105,6 +105,9 @@ const methods = {
 				traffic: fields(readfile(device + 'traffic')),
 				fe: fields(readfile(device + 'fe')),
 				optical: fields(readfile(device + 'optical')),
+				/* DDM raw counts: temperature 1/256 degC, voltage 0.1 mV,
+				 * bias 2 uA, tx/rx power 0.1 uW (standard MSA A2 layout). */
+				transceiver: fields(readfile(device + 'transceiver')),
 				fec: fields(readfile(device + 'fec')),
 				puc: readfile(device + 'puc'),
 				pdc: readfile(device + 'pdc'),

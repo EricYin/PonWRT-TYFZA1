@@ -28,6 +28,21 @@ PonWRT-TYFZA1 是面向天翼 TYFZA1 光猫的 OpenWrt 适配项目。设备采�
 - **原生体验**：使用 LuCI 管理上网、无线和防火墙，通过 sysupgrade 升级。
 - **原厂数据保留**：启动时自动读取本机身份、光学校准和无线校准，安装时保留另一槽原厂系统及配置卷。
 
+## 分支说明
+
+本仓库是 [LeoooChen/PonWRT-TYFZA1](https://github.com/LeoooChen/PonWRT-TYFZA1) 的
+个人 fork，按用途分成两条互不干扰的分支：
+
+| 分支 | 用途 | 说明 |
+| --- | --- | --- |
+| `pt1570`（默认） | **PT1570-R10 适配** | 在 TYFZA1 基础上移植到天翼 PT1570-R10，含硬件差异修正与 XGPON 上网支持 |
+| `tyfza1-custom` | **TYFZA1 + 自用软件包** | 保持原厂 TYFZA1 硬件适配不变，只叠加自用软件包（`v0.8.7-custom`） |
+
+- 两条分支**不合并**，各自独立演进
+- PT1570 的硬件差异（UBI 卷号、按键 bank、LAN 反序、MSA 光模块）在各版本的
+  `RELEASE_NOTES.md` 中有记录
+- Release 标签前缀区分：`v0.8.1-pt1570-*` 属于 PT1570 分支
+
 ## 下载固件
 
 前往 **[Releases](https://github.com/LeoooChen/PonWRT-TYFZA1/releases)** 下载适用于原生 U-Boot 的固件，版本变化见 [更新日志](RELEASE_NOTES.md)。

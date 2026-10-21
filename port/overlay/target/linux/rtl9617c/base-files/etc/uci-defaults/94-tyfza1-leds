@@ -9,7 +9,11 @@ case "$(board_name)" in
 		usb_led=LED_USB1
 		;;
 	*)
-		lan_devs="lan1 lan2 lan3 lan4"
+		# PT1570-R10 panel is silkscreened LAN1..LAN4 left to right, while the
+		# PHY/port order is reversed; rtl9617c-tyfza1-ni.dts reverses lan-phys
+		# so Linux lan1 == panel LAN1, which means LED_EPHY0 (physically on
+		# panel LAN4) must bind to lan4.
+		lan_devs="lan4 lan3 lan2 lan1"
 		usb_led=LED_USB0
 		;;
 esac

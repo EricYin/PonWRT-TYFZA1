@@ -39,7 +39,10 @@ with tempfile.TemporaryDirectory(prefix='board-variants-') as directory:
             assert cells(matching[0]['gpios'])[1:] == expected, (board, label)
         assert {names(p['label'])[0] for n, p in native.items()
                 if n.startswith('/leds/')} == set(original['leds'])
-        assert cells(native['/led-button/lights-toggle']['gpios'])[1:] == original['lights_toggle']
+        for node, expected in original['buttons'].items():
+            path = '/led-button/' + node
+            assert path in native, (board, path)
+            assert cells(native[path]['gpios'])[1:] == expected, (board, node)
         ni = native['/soc/ethernet@4f4300000']
         mdio = next(p for n, p in native.items() if p.get('compatible') == b'realtek,rtl9617c-mdio\0')
         lan_phys = cells(ni['realtek,lan-phys'])

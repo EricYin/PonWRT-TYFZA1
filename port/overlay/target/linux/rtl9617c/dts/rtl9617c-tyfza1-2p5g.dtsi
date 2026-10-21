@@ -18,7 +18,8 @@
 	};
 
 	led-button {
-		lights-toggle { gpios = <&gpio0 66 GPIO_ACTIVE_LOW>; };
+		/* The 2.5G board routes its lights key to GPIO66 instead of 71. */
+		btn-led { gpios = <&gpio0 66 GPIO_ACTIVE_LOW>; };
 	};
 };
 

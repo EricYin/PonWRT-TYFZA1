@@ -150,9 +150,13 @@ function page(title, description, initial, read, render, form) {
 	}
 	showTime();
 	poll.add(refresh, 5);
+	/* Argon renders the page heading as a card and leaves the description
+	 * outside it (see admin/system). Keep the description as a sibling of the
+	 * card, not a child, or the card grows a second line of grey text. */
 	return E('div', { class: 'tyf-pon cbi-map' }, [status.style(),
-		E('div', { class: 'tyf-page-header' }, [E('div', {}, [E('p', { class: 'tyf-eyebrow' }, 'TYFZA1 / ONU'), E('h2', {}, title), note(description)]),
-			E('div', { class: 'tyf-refresh-controls' }, [updated, button])]), warning, live, form || null]);
+		E('div', { class: 'tyf-page-header' }, [E('div', {}, [E('p', { class: 'tyf-eyebrow' }, 'TYFZA1 / ONU'), E('h2', {}, title)]),
+			E('div', { class: 'tyf-refresh-controls' }, [updated, button])]),
+		note(description), warning, live, form || null]);
 }
 
 return baseclass.extend({ note: note, link: link, tile: tile, grid: grid, fold: fold, bytes: bytes,

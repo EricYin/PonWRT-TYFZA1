@@ -12,3 +12,10 @@ analysis/python-deps/
 analysis/radio-stock-power/
 analysis/radio-stock-download/
 analysis/radio-stock-lifecycle/
+
+# local build artifacts (downloaded firmware, extracted trees)
+*.zip
+kx/
+kx2/
+out/
+build.log

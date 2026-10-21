@@ -1,0 +1,19 @@
+--- a/drivers/mtd/nand/spi/xtx.c	2026-10-20 15:10:40.023811300 +0800
++++ b/drivers/mtd/nand/spi/xtx.c	2026-10-20 15:10:40.428258500 +0800
+@@ -159,6 +159,16 @@
+ 		     SPINAND_HAS_QE_BIT,
+ 		     SPINAND_ECCINFO(&xt26g0xa_ooblayout,
+ 				     xt26g0xa_ecc_get_status)),
++	SPINAND_INFO("XT26G02C",
++		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x12),
++		     NAND_MEMORG(1, 2048, 128, 64, 2048, 40, 1, 1, 1),
++		     NAND_ECCREQ(8, 512),
++		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
++					      &write_cache_variants,
++					      &update_cache_variants),
++		     0,
++		     SPINAND_ECCINFO(&xt26xxxd_ooblayout,
++				     xt26xxxd_ecc_get_status)),
+ 	SPINAND_INFO("XT26G04A",
+ 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xE3),
+ 		     NAND_MEMORG(1, 2048, 64, 128, 2048, 40, 1, 1, 1),
