@@ -1,3 +1,27 @@
+## v0.8.1-pt1570-lan5
+
+### 本版内容
+
+- **修正 `test_ubi_storage.py` 的夹具**。上一版把升级检查收紧为 PT1570 专属
+  （只认 `ubi0_3` / `ubi0_6`）后，构建在「Verify storage migration」这一步
+  挂了 7 个用例：
+
+  ```
+  AssertionError: False != True :
+  Unexpected root volume: ubi0_7 - this image is for PT1570-R10 (ubi0_3/ubi0_6) only
+  ```
+
+  原因是测试夹具模拟的是 **TYFZA1 布局**（`OEM` 列表里有 `ubi_fpga`，
+  root 落在索引 4/7）。夹具改为 PT1570 布局：
+
+  - `OEM` 去掉 `('ubi_fpga', 34)`，其后所有卷 ID 前移一位
+  - root0/root1 断言由 `vols['4']` / `vols['7']` 改为 `vols['3']` / `vols['6']`
+  - `(rootid-4)//3` → `(rootid-3)//3`
+  - `root=/dev/ubiblock0_{4+3*slot}` → `{3+3*slot}`
+
+- 含上一版全部内容：升级检查收紧、`model` 改为 `YHTC PT1570-R10`、
+  LAN 映射回滚、ONU 界面统一、DDM 显示、BOSA 存活探测、按键 bank3。
+
 ## v0.8.1-pt1570-lan4
 
 ### 本版内容
