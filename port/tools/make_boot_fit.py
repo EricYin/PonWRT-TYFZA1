@@ -49,7 +49,7 @@ def boot_script(mode, verity=None):
         'if test "${root_mtd}" = "31:9"; then',
         '    setenv owrt_ubivol ubi_r0',
         '    setenv owrt_root /dev/ubiblock0_3',
-        'elif test "${root_mtd}" = "31:12"; then',
+        'elif test "${root_mtd}" = "31:11"; then',
         '    setenv owrt_ubivol ubi_r1',
         '    setenv owrt_root /dev/ubiblock0_6',
         'else',

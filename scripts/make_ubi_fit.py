@@ -25,7 +25,10 @@ parameters = {item['name']: item['lzma_alone'] for item in contract['images']
 (out / 'kernel.lzma').write_bytes(compress(args.image.read_bytes(), parameters['kernel']))
 (out / 'fdt.lzma').write_bytes(compress(args.dtb.read_bytes(), parameters['fdt-dts']))
 (out / 'fdt-2p5g.lzma').write_bytes(compress(args.dtb_2p5g.read_bytes(), parameters['fdt-dts']))
-(out / 'boot.cmd').write_text('''if test "${root_mtd}" = "31:12"; then
+# PT1570 UBI has 11 volumes (ubi0_0..ubi0_10, last one is ubi_dpi), so the
+# stock root selectors are 31:8 (slot0) and 31:11 (slot1). The original code
+# tested for 31:12, which does not exist here - the slot1 branch was dead code.
+(out / 'boot.cmd').write_text('''if test "${root_mtd}" = "31:11"; then
     setenv tyfza1_slot 1
     setenv tyfza1_root ubi_r1
     setenv tyfza1_block /dev/ubiblock0_6

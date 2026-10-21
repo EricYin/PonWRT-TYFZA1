@@ -22,7 +22,7 @@ class BootFit(unittest.TestCase):
 
     def test_ubi_translates_both_stock_root_selectors(self):
         script = boot_script('ubi', VERITY)
-        for value in ('31:9', '31:12', 'ubi_r0', 'ubi_r1',
+        for value in ('31:9', '31:11', 'ubi_r0', 'ubi_r1',
                       '/dev/ubiblock0_4', '/dev/ubiblock0_7'):
             self.assertIn(value, script)
         self.assertIn('ubi.mtd=ubi_device', script)
