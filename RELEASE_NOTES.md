@@ -37,8 +37,18 @@
   对照：另外两个键一直能用，因为 `KEY_RESTART` / `KEY_LIGHTS_TOGGLE`
   本来就在表里。
 
-- 含 `v0.8.1-pt1570-lan18` 的全部内容：2.4G 跳过 FEM GPIO 配置、
-  体积测量步骤、缓存 keepalive。
+- **移除工具链缓存**。lan18 实测 81 分钟，比 lan13 的冷构建（53 分钟）
+  **慢了 28 分钟**。
+
+  原因：只缓存 `staging_dir` 不够 —— OpenWrt 的增量构建依赖
+  `build_dir` 里的 `.built` 标记，`staging_dir` 恢复了但 `build_dir` 是空的，
+  所有包仍然全量重编，净效果是"多花了 760 MB 的下载和解压时间"。
+
+  已移除该缓存步骤，回到只缓存 `dl`（源码包）。`cache-keepalive.yml` 一并删除。
+  保留了体积测量步骤（`if: always()`），下次构建可以看到
+  `build_dir/target-*` 的真实体积，再决定是否值得缓存。
+
+- 含 `v0.8.1-pt1570-lan18` 的全部内容：2.4G 跳过 FEM GPIO 配置、体积测量。
 
 ## v0.8.1-pt1570-lan18
 
