@@ -2,6 +2,11 @@
 'require baseclass';
 'require rpc';
 
+/* Fixed once per page load. The stylesheet is referenced by every ONU page, so
+ * a load-time stamp keeps "edit CSS, refresh, see it" working without having to
+ * bump a literal version number by hand. */
+var CSS_VERSION = Date.now();
+
 var callStatus = rpc.declare({ object: 'luci.tyfza1-pon', method: 'status', expect: { '': {} }, reject: true });
 var modes = {
 	epon: 'EPON', 'epon-d10g': '10G EPON（非对称）', 'epon-bi10g': '10G EPON（对称）',
@@ -119,6 +124,6 @@ return baseclass.extend({
 	modes: modes, value: value, ddm: ddm, badge: badge, rows: rows, card: card,
 	omciLive: omciLive, ponState: ponState, ponCard: ponCard, offloadCard: offloadCard,
 	// Track the CSS content independently of LuCI's version across sysupgrades.
-	style: function() { return E('link', { rel: 'stylesheet', href: L.resource('tyfza1/status.css') + '?v=20261021r3' }); },
+	style: function() { return E('link', { rel: 'stylesheet', href: L.resource('tyfza1/status.css') + '?v=' + CSS_VERSION }); },
 	callStatus: callStatus
 });

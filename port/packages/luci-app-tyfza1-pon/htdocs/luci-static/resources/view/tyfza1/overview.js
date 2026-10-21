@@ -3,15 +3,10 @@
 'require tyfza1.status as status';
 'require tyfza1.ui as ui';
 
-/* Bump per page load. The stylesheet link comes from ui.page()/status.js, both
- * of which the browser may hold in cache, so the ?v= baked in there can be
- * stale; a load-time stamp guarantees the CSS is re-fetched after any edit. */
-var CSS_V = Date.now();
-
 return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
-		var node = ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
+		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
 			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
 				ddm = pon.transceiver || {};
 			/* DDM scaling is kept local on purpose. Moving it into status.js would
@@ -68,22 +63,9 @@ return view.extend({
 				})) : ui.note('未发现无线接口；请检查无线配置与校准加载状态。'), ui.link('管理 Wi-Fi 6', 'admin/network/wireless')]),
 				ui.fold('物理端口与累计流量', 'ports', ui.ports(pon)),
 				ui.fold('OLT 下发的 GEM 业务通道', 'paths', ui.services(pon)),
-				ui.note((data.board.model || 'TYFZA1') + ' · ' + ((data.board.release || {}).description || '固件信息未提供'))
+				ui.note((data.board.model || 'PT1570-R10') + ' · ' + ((data.board.release || {}).description || '固件信息未提供'))
 			]);
 		});
-		/* ui.page() emits its stylesheet link from status.js, which the browser
-		 * may still hold in cache - the ?v= there would stay stale and the new
-		 * rules would never load. Re-point the link at a fresh query so the
-		 * stylesheet is re-fetched regardless of the cached module. */
-		var link = node.querySelector('link[href*="tyfza1/status.css"]');
-		if (link) link.href = L.resource('tyfza1/status.css') + '?v=' + CSS_V;
-		/* ui.page() in the cached ui.js still nests the description inside the
-		 * heading card. Argon keeps it outside (see admin/system), so lift it
-		 * out here. Once the fixed ui.js ships this is a no-op. */
-		var head = node.querySelector('.tyf-page-header');
-		var desc = head && head.querySelector('.tyf-note');
-		if (head && desc) head.parentNode.insertBefore(desc, head.nextSibling);
-		return node;
 	},
 	handleSaveApply: null, handleSave: null, handleReset: null
 });

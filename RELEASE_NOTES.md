@@ -1,3 +1,33 @@
+## v0.8.1-pt1570-lan7
+
+### 本版内容
+
+- **视图文件改回干净名字**。前几版为了绕开浏览器缓存，把状态页视图依次改名
+  成 `status-v2/v3/v4/v5/v6`。那只是调试期的手段，不该留在仓库里：
+
+  正式固件每次构建 `DISTRIB_REVISION` 都会变，`luci.js` 拼出的
+  `?v=` 跟着变，所有静态资源 URL 一起变，缓存自然失效。
+
+  现在恢复为 `view/tyfza1/overview.js`，`menu.d` 的 `path` 同步改回
+  `tyfza1/overview`。
+
+- **去掉视图里的两处调试兼容代码**：
+  - CSS 链接重指（`link.href = ... + '?v=' + CSS_V`）
+  - 描述节点的 DOM 搬移（`head.parentNode.insertBefore(desc, ...)`）
+
+  这两处原本是为了在 `ui.js` / `status.js` 被缓存的情况下让改动生效。
+  现在源头都改好了，视图直接 `return ui.page(...)` 即可。
+
+- **CSS 版本改为模块级时间戳**：`status.js` 里
+  `var CSS_VERSION = Date.now()`，改完样式刷新页面就能看到，
+  不用再手工改版本号。
+
+- **板型兜底值改为 PT1570-R10**（原来写的是 `'TYFZA1'`）。
+
+- 含 `v0.8.1-pt1570-lan4` 的全部内容：LAN 映射回滚、升级检查收紧为
+  PT1570 专属、`model` 改为 `YHTC PT1570-R10`、测试夹具改 PT1570 布局、
+  描述样式对齐 Argon。
+
 ## v0.8.1-pt1570-lan6
 
 ### 本版内容
