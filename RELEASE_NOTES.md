@@ -1,3 +1,32 @@
+## v0.8.1-pt1570-lan9
+
+### 本版内容
+
+- **修复注册灯在开机后一直闪烁**。`leds.uc` 的 auth 判断带了一个
+  `key = mode:session:auth:state` 的缓存，本意是省掉重复计算。但守护进程在
+  PON 还在 O1 时就启动了，`state` 之后变成 O5，而 `auth` 恒为 0
+  （中国移动按 SN 认证，OMCI 从不上报结果），缓存 key 几乎不动，
+  于是 LED 一直停在 `itu_patterns[O5] = 250`（闪烁），
+  必须手动 `restart` 才常亮。
+
+  现在改成**每个 tick 都重新判断**——几次比较的开销远小于一个会过期的缓存。
+
+- **构建缓存工具链**（首次构建仍然慢，从第二次起生效）。
+  之前只缓存了 `dl`（源码包），而一次冷构建里**交叉工具链 + host 工具
+  占了将近一半时间**（约 40 分钟）。新增缓存：
+
+  ```
+  sources/openwrt/staging_dir
+  sources/openwrt/build_dir/host
+  ```
+
+  key 包含 `sources.lock.json` + `configs/*.config` + 内核 `config-6.18`，
+  这三者不变就复用。OpenWrt 的构建系统仍会检查 `build_dir` 内的时间戳，
+  所以缓存不会掩盖源码改动。
+
+- 含 `v0.8.1-pt1570-lan8` 的全部内容：sysupgrade 改为 LEB 对齐写入、
+  `DISTRIB_REVISION` 改为实际 commit、瓦片排成一行。
+
 ## v0.8.1-pt1570-lan8
 
 ### 本版内容

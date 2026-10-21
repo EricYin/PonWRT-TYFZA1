@@ -89,6 +89,19 @@ jobs:
         with:
           path: sources/openwrt/dl
           key: openwrt-downloads-${{ runner.os }}-${{ hashFiles('port/sources.lock.json', 'configs/feeds.conf') }}
+      # Cache the cross toolchain and host tools. They dominate a cold build
+      # (roughly half of the ~90 minutes) and only change when the source lock,
+      # the package config or the kernel config change. OpenWrt's build system
+      # still re-checks timestamps inside build_dir, so a stale cache cannot
+      # mask source edits - it just skips rebuilding what did not move.
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            sources/openwrt/staging_dir
+            sources/openwrt/build_dir/host
+          key: openwrt-toolchain-${{ runner.os }}-${{ hashFiles('port/sources.lock.json', 'configs/*.config', 'port/overlay/target/linux/rtl9617c/config-6.18') }}
+          restore-keys: |
+            openwrt-toolchain-${{ runner.os }}-
       - name: Obtain common runtime inputs and signing key
         env:
           FIT_SIGNING_KEY: ${{ secrets.TYFZA1_FIT_SIGNING_KEY }}
