@@ -5,7 +5,7 @@
   },
   "admin/onu/status": {
     "title": "运行状态", "order": 10,
-    "action": {"type": "view", "path": "tyfza1/status-v4"}
+    "action": {"type": "view", "path": "tyfza1/status-v5"}
   },
   "admin/onu/hardware": {
     "title": "硬件身份", "order": 20,

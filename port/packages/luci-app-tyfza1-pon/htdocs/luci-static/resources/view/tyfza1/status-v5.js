@@ -71,7 +71,13 @@ return view.extend({
 		 * rules would never load. Re-point the link at a fresh query so the
 		 * stylesheet is re-fetched regardless of the cached module. */
 		var link = node.querySelector('link[href*="tyfza1/status.css"]');
-		if (link) link.href = L.resource('tyfza1/status.css') + '?v=20261021r3';
+		if (link) link.href = L.resource('tyfza1/status.css') + '?v=20261021r4';
+		/* ui.page() in the cached ui.js still nests the description inside the
+		 * heading card. Argon keeps it outside (see admin/system), so lift it
+		 * out here. Once the fixed ui.js ships this is a no-op. */
+		var head = node.querySelector('.tyf-page-header');
+		var desc = head && head.querySelector('.tyf-note');
+		if (head && desc) head.parentNode.insertBefore(desc, head.nextSibling);
 		return node;
 	},
 	handleSaveApply: null, handleSave: null, handleReset: null
