@@ -1,3 +1,13 @@
+## v0.8.1-pt1570-ddm2
+
+### 本版内容
+
+- 修正 2.5G 变体的按键 fixture：`btn-wifi` 继承主 DTSI 的 bank3 pin7（GPIO 103），
+  不是旧的 67。上一版构建因 `test_board_variants.py` 断言失败而中断。
+- FIT 槽位判据修正：`31:12` → `31:11`（PT1570 只有 ubi0_0..ubi0_10）。
+- factory 数据源改为显式三段判断，不再静默回退到固件内副本。
+- 含 DDM 显示、BOSA 存活探测、LAN 顺序、注册灯、按键 bank3 修正。
+
 ## v0.8.1-pt1570-ddm
 
 ### 本版内容
