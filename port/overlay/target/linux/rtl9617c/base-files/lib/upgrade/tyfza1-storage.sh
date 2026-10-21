@@ -19,8 +19,14 @@ tyfza1_plan_storage() {
 	local ubidev="$1" rootvol="$2" size="$3"
 	local path="/sys/class/ubi/$rootvol" data free root_ebs data_ebs=0
 	local leb=$(cat "$path/usable_eb_size")
+	# TYFZA1 keeps ubi_fpga, so the OEM root volumes sit at ubi0_4 / ubi0_7.
+	# PT1570-R10 has no ubi_fpga (its last volume is ubi_dpi), so every ID
+	# shifts down by one: ubi0_3 / ubi0_6. Accept both layouts - the volume
+	# name is what identifies the slot, the numeric suffix just has to agree
+	# with the board's own layout.
 	case "$(cat "$path/name"):$rootvol" in
-		ubi_r0:${ubidev}_4|ubi_r1:${ubidev}_7) ;;
+		ubi_r0:${ubidev}_3|ubi_r0:${ubidev}_4|\
+		ubi_r1:${ubidev}_6|ubi_r1:${ubidev}_7) ;;
 		*) echo "Unexpected TYFZA1 root volume: $rootvol" >&2; return 1 ;;
 	esac
 	[ "$size" -gt 0 ] && [ "$size" -le 33648640 ] || {

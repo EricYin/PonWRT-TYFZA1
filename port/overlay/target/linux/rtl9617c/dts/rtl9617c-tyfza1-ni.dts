@@ -12,26 +12,21 @@
 	reg-names = "ni", "xram", "dma-lso", "qm-axi-reorder", "block-reset",
 		    "l3fe-axi-reorder";
 	realtek,qm-rx;
-	/* PT1570-R10: the panel is silkscreened LAN1..LAN4 left to right, but the
-	 * PHY order is reversed (phy0 drives panel LAN4). Reversing both lists
-	 * makes Linux lan1 = panel LAN1, which matches the labels and the LEDs.
+	/* Do NOT reverse realtek,lan-phys or phy-handle here.
 	 *
-	 * Careful: rtl_register_lans() reads realtek,lan-phys with index == port,
-	 * and port 0 does NOT use lan-phys at all - it uses phy-handle. So
-	 * lan-phys[0] is never read, and phy-handle has to be reversed too,
-	 * otherwise port 0 and port 3 both end up on phy0 (mdio:01) and the
-	 * second phy_attach_direct() fails with -EEXIST:
-	 *   sysfs: cannot create duplicate filename
-	 *   '/bus/mdio_bus/drivers/Generic PHY/4f4329118.mdio:01'
+	 * A MAC port and its PHY are wired together on the board: port 0 can only
+	 * talk to phy0 (mdio:01), port 3 only to phy3 (mdio:04). Pointing
+	 * phy-handle at phy3 makes port 0 negotiate a link with the wrong PHY -
+	 * the link comes up at 1 Gbps and the bridge puts the port in forwarding,
+	 * but rx_packets stays at 0 because the data path never connects.
+	 * Reversing only realtek,lan-phys is worse still: port 0 keeps phy-handle
+	 * (phy0) and port 3 also gets phy0, so phy_attach_direct() fails with
+	 * -EEXIST and LAN4 never registers.
 	 *
-	 * Final mapping (port -> phy -> panel):
-	 *   port 0 -> phy-handle phy3 (mdio:04) -> LAN1
-	 *   port 1 -> lan-phys[1] phy2 (mdio:03) -> LAN2
-	 *   port 2 -> lan-phys[2] phy1 (mdio:02) -> LAN3
-	 *   port 3 -> lan-phys[3] phy0 (mdio:01) -> LAN4
-	 */
-	phy-handle = <&phy3>;
-	realtek,lan-phys = <&phy3 &phy2 &phy1 &phy0>;
+	 * The panel order is therefore fixed by hardware: Linux lan1 is the jack
+	 * silkscreened LAN4. Renaming the interfaces would need a driver change,
+	 * not a device-tree change. */
+	realtek,lan-phys = <&phy0 &phy1 &phy2 &phy3>;
 	interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 };
 
