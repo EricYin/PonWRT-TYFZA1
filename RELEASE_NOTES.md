@@ -1,3 +1,39 @@
+## v0.8.1-pt1570-lan17
+
+### 本版内容
+
+- **修复上一版构建失败：`/etc/rc.button/wps` 与 wifi-scripts 包冲突**。
+
+  ```
+  ERROR: wifi-scripts-1.0-r2: trying to overwrite etc/rc.button/wps
+         owned by base-files-1~79bc56c
+  ```
+
+  `wifi-scripts` 包已经提供了 `/etc/rc.button/wps`（它遍历 `/etc/rc.wps/*`），
+  我们的 overlay 又放了一份同名文件，打包时直接报冲突。
+
+- **无线键改用 `rfkill` label，不再需要自定义脚本**。
+
+  `gpio-button-hotplug` 只认 `reset` / `wps` / `rfkill` / `lights_toggle`，
+  而 OpenWrt 自带 `/etc/rc.button/rfkill`，逻辑正好是我们要的：
+
+  ```sh
+  wifi_rfkill_check() {   # 只要有一个 radio 启用，就把状态翻成"全关"
+      config_get disabled $1 disabled
+      [ "$disabled" = "1" ] || rfkill_state=1
+  }
+  config_foreach wifi_rfkill_set wifi-device
+  uci commit wireless
+  wifi up
+  ```
+
+  **全开 ↔ 全关切换，零冲突、零自定义代码**。
+
+  自定义的 `/etc/rc.button/wps` 已删除。
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、LAN LED 修正、
+  注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
 ## v0.8.1-pt1570-lan16
 
 ### 本版内容

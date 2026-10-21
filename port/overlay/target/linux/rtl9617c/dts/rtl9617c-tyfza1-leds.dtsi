@@ -56,11 +56,14 @@
 			debounce-interval = <60>;
 		};
 		btn-wifi {
-			/* Must stay "wps": gpio-button-hotplug has a fixed label table
-			 * (reset / wps / rfkill / lights_toggle) and silently ignores any
-			 * other label, so a "wifi" label produced no key events at all.
-			 * The action is still a radio on/off toggle - see /etc/rc.button/wps. */
-			label = "wps";
+			/* Label must be one of gpio-button-hotplug's known set
+			 * (reset / wps / rfkill / lights_toggle) - anything else is
+			 * dropped silently. Use "rfkill": OpenWrt ships
+			 * /etc/rc.button/rfkill, which already toggles every radio
+			 * (all-on <-> all-off), so no custom script is needed.
+			 * "wps" was rejected at image build time because the
+			 * wifi-scripts package also owns /etc/rc.button/wps. */
+			label = "rfkill";
 			linux,code = <KEY_WPS_BUTTON>;
 			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
