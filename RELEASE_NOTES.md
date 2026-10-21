@@ -1,3 +1,50 @@
+## v0.8.1-pt1570-lan18
+
+### 本版内容
+
+- **修复 2.4G 客户端搜不到 AP（关键）**。
+
+  硬件差异：**PT1570 只有 5G 有外置 FEM，2.4G 用芯片内置 PA/LNA**；
+  而 tyfza1 是 2.4G 和 5G 都有 FEM。原厂固件为此准备了独立的
+  `gpio_setting_init_XB@2f0218`（2.4G）和 `gpio_setting_init_C@2e585c`（5G）
+  两套初始化。
+
+  我们的驱动把两者合并了，**2.4G 也套用了 5G 的 FEM 配置**：
+
+  ```c
+  /* 修改前 */
+  rtl_ax_update32(io, reg, 255, 4);              /* PAPE = GPIO 4 */
+  rtl_ax_update32(io, reg, 255U << 8, 6U << 8);  /* TRSW = GPIO 6 */
+  if (chip == RTL_AX_8192XB)                     /* 2.4G */
+      rtl_ax_update32(io, reg, 255U << 16, 10U << 16);  /* LNA = GPIO 10 */
+  ```
+
+  芯片因此**按"有外置 FEM 增益"去算 2.4G 发射功率**，实际却是内置 PA，
+  功率严重偏离 —— 表现为 AP 在广播（hostapd `AP-ENABLED`、AX210 能搜到），
+  但**手机搜不到**，或者搜到了也连不上。
+
+  ```c
+  /* 修改后：只有 5G 配置 FEM */
+  if (chip == RTL_AX_8852C) {
+      rtl_ax_update32(io, reg, 255, 4);
+      rtl_ax_update32(io, reg, 255U << 8, 6U << 8);
+      rtl_ax_update32(io, reg, 255U << 16, 10U << 16);
+  }
+  ```
+
+- **无线键改用 `rfkill` label**（含 lan17 的内容）。`wifi-scripts` 包已经提供
+  `/etc/rc.button/wps`，我们再加一份会导致打包冲突：
+
+  ```
+  ERROR: wifi-scripts-1.0-r2: trying to overwrite etc/rc.button/wps
+  ```
+
+  改用 OpenWrt 自带的 `/etc/rc.button/rfkill`，逻辑正好是 radio 全开/全关，
+  零冲突、零自定义脚本。
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、LAN LED 修正、
+  注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
 ## v0.8.1-pt1570-lan17
 
 ### 本版内容
