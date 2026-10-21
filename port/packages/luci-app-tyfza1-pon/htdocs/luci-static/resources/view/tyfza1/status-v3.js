@@ -9,6 +9,19 @@ return view.extend({
 		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
 			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
 				ddm = pon.transceiver || {};
+			/* DDM scaling is kept local on purpose. Moving it into status.js would
+			 * be cleaner, but a browser that still holds a cached status.js would
+			 * then fail here with "Cannot read properties of undefined (reading
+			 * 'power')" - a view renamed to bust the cache still pulls its
+			 * dependencies from the cache. Local definitions make this file
+			 * self-contained. */
+			function ddmTemp(v){ if (v == null) return '未提供';
+				var n = +v & 0xffff; if (n & 0x8000) n -= 0x10000;
+				return (n / 256).toFixed(1) + ' °C'; }
+			function ddmVolt(v){ return v == null ? '未提供' : (+v / 10000).toFixed(2) + ' V'; }
+			function ddmBias(v){ return v == null ? '未提供' : (+v / 500).toFixed(2) + ' mA'; }
+			function ddmPower(v){ return v == null || +v <= 0 ? '未提供' :
+				(10 * Math.log10(+v / 10000)).toFixed(2) + ' dBm'; }
 			/* Tiles carry only the readings you glance at to decide whether the line
 			 * is healthy: receive/transmit power, module temperature, supply voltage
 			 * and the two optical states. Bias current is a diagnostic - it only
@@ -20,16 +33,16 @@ return view.extend({
 			 * is noise, not emphasis. */
 			return E('div', {}, [data.pon ? status.ponCard(pon) : E('p', { class: 'alert-message warning' }, 'PON 状态读取失败。'),
 				ui.grid([
-					ui.tile('接收光功率', status.ddm.power(ddm.rx_power_raw), '下行收光功率'),
-					ui.tile('发送光功率', status.ddm.power(ddm.tx_power_raw), '上行发光功率'),
-					ui.tile('温度', status.ddm.temperature(ddm.temperature_raw), '光模块内部温度'),
+					ui.tile('接收光功率', ddmPower(ddm.rx_power_raw), '下行收光功率'),
+					ui.tile('发送光功率', ddmPower(ddm.tx_power_raw), '上行发光功率'),
+					ui.tile('温度', ddmTemp(ddm.temperature_raw), '光模块内部温度'),
 					ui.tile('光口发射', optical.tx_disabled == null ? '未提供' : optical.tx_disabled === '1' ? '已关闭' : '已允许', '发送方向是否被关闭'),
 					ui.tile('光学校准', bosa.configured == null ? '未提供' : bosa.configured === '1' ? '已配置' : '未就绪', '沿用原厂数据加载机制')
 				]),
 				ui.fold('光模块详情（电压 / 偏置 / 原始读数）', 'module', [
 					status.rows([
-						['供电电压', status.ddm.voltage(ddm.voltage_raw)],
-						['偏置电流', status.ddm.bias(ddm.bias_raw)],
+						['供电电压', ddmVolt(ddm.voltage_raw)],
+						['偏置电流', ddmBias(ddm.bias_raw)],
 						['温度原始值', ddm.temperature_raw == null ? '未提供' : status.value(ddm.temperature_raw) + '（1/256 °C）'],
 						['DDM 来源', ddm.temperature_raw == null ? '未提供，光模块未上报' : '光模块 A2 页（MSA SFF-8472）'],
 						/* ff/ff/ff is what identify() reads from a module that does not
