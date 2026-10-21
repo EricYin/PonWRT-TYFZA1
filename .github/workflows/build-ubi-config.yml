@@ -4,9 +4,14 @@ name: build-ubi-config
 #
 # The config files contain this unit's MAC / serial number / radio calibration,
 # so they are NOT committed. They are supplied through the repository secret
-# UBI_CONFIG_B64, which holds a base64 of:
+# UBI_CONFIG_B64, which holds a base64 of the whole volume:
 #
-#   tar czf - -C <ubi_Config dir> config.xml config_hs.xml
+#   tar cf - -C <ubi_Config dir> . | xz -6 | base64 -w0
+#
+# All 12 files must be included, not just config.xml / config_hs.xml: the stock
+# firmware also reads dev_info.cfg, omci_mib.cfg, scfg.txt and default_scfg.txt,
+# and a volume missing them would break a stock-slot boot. xz keeps the whole
+# tree at ~23 KB so it fits in the 64 KB secret limit (gzip needed 49 KB).
 #
 # Geometry comes from the unit (ubireader display-info on the full dump):
 #   PEB 131072, LEB 126976, volume reserved 83 PEB.
@@ -39,11 +44,16 @@ jobs:
             exit 1
           fi
           mkdir -p config-tree
-          printf '%s' "$UBI_CONFIG_B64" | base64 -d | tar xz -C config-tree
+          printf '%s' "$UBI_CONFIG_B64" | base64 -d | xz -d | tar x -C config-tree
           echo "--- unpacked ---"
           ls -l config-tree
-          test -f config-tree/config.xml
-          test -f config-tree/config_hs.xml
+          # All files the stock firmware expects must be present.
+          for f in config.xml config_hs.xml config_bak.xml config_hs_bak.xml \
+                   dev_info.cfg omci_mib.cfg omci_custom_opt.conf \
+                   omci_ignore_mib_tbl.conf scfg.txt default_scfg.txt; do
+            test -f "config-tree/$f" || { echo "::error::missing $f"; exit 1; }
+          done
+          echo "file count: $(find config-tree -type f | wc -l)"
 
       - name: Build UBIFS image
         run: |
@@ -68,6 +78,8 @@ jobs:
           assert magic == 0x06101831, 'not a UBIFS image'
           print('total size: %d bytes' % len(data))
           PY
+          echo "--- tree ---"
+          find config-tree -type f -printf '%10s  %p\n' | sort -k2
 
       - uses: actions/upload-artifact@v4
         with:
