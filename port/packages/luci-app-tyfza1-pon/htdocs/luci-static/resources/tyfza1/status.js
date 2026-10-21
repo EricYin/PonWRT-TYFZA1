@@ -9,6 +9,28 @@ var modes = {
 };
 
 function value(v) { return v == null || v === '' ? '—' : String(v); }
+
+/* Standard MSA (SFF-8472) A2 page scaling, shared by the status page and the
+ * diagnostics page so the same raw byte never renders two different ways.
+ *   temperature  signed 16-bit, 1/256 degC
+ *   voltage      unsigned 16-bit, 0.1 mV
+ *   bias         unsigned 16-bit, 2 uA
+ *   tx/rx power  unsigned 16-bit, 0.1 uW
+ * A missing reading is reported as 未提供 rather than 0, so a dead DDM block
+ * is not mistaken for a real zero. */
+var ddm = {
+	temperature: function(v) {
+		if (v == null) return '未提供';
+		var n = +v & 0xffff;
+		if (n & 0x8000) n -= 0x10000;
+		return (n / 256).toFixed(1) + ' °C';
+	},
+	voltage: function(v) { return v == null ? '未提供' : (+v / 10000).toFixed(2) + ' V'; },
+	bias: function(v) { return v == null ? '未提供' : (+v / 500).toFixed(2) + ' mA'; },
+	power: function(v) {
+		return v == null || +v <= 0 ? '未提供' : (10 * Math.log10(+v / 10000)).toFixed(2) + ' dBm';
+	}
+};
 function flag(v) { return v === '1' || v === 1 || v === true; }
 function badge(text, tone) { return E('span', { class: 'tyf-badge tyf-' + (tone || 'muted') }, [text]); }
 function rows(items) {
@@ -94,7 +116,7 @@ function offloadCard(data) {
 }
 
 return baseclass.extend({
-	modes: modes, value: value, badge: badge, rows: rows, card: card,
+	modes: modes, value: value, ddm: ddm, badge: badge, rows: rows, card: card,
 	omciLive: omciLive, ponState: ponState, ponCard: ponCard, offloadCard: offloadCard,
 	// Track the CSS content independently of LuCI's version across sysupgrades.
 	style: function() { return E('link', { rel: 'stylesheet', href: L.resource('tyfza1/status.css') + '?v=9f264a673f8f' }); },

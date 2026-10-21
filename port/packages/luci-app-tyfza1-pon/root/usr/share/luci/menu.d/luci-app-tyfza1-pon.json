@@ -1,8 +1,7 @@
 {
   "admin/onu": {
     "title": "ONU", "order": 25,
-    "action": {"type": "firstchild"},
-    "depends": {"acl": ["luci-app-tyfza1-pon"]}
+    "action": {"type": "firstchild"}
   },
   "admin/onu/status": {
     "title": "运行状态", "order": 10,
