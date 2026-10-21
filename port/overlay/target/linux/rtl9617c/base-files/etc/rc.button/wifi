@@ -1,27 +1,44 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-only
 #
-# PT1570-R10 front-panel "wireless" key.
+# PT1570-R10 front-panel "wireless" key: toggle every radio.
 #
 # The stock firmware uses this key for WPS, but this firmware ships a basic
-# wpad without WPS support, so the key had no effect at all. Treating it as a
-# radio on/off switch is both more useful and more predictable: press once to
-# disable every radio, press again to bring them back.
-#
-# `wifi reload` restarts hostapd, so pressing it twice in a row is also the
-# quickest way to bounce the APs without a reboot.
+# wpad without WPS support, so the key had no effect at all.
 
 [ "$ACTION" = "released" ] || exit 0
 
-current=$(uci -q get wireless.@wifi-device[0].disabled)
-[ "$current" = "1" ] && target=0 || target=1
+# Debounce. A mechanical key bounces, and gpio-button-hotplug can also deliver
+# pressed/released pairs faster than `wifi reload` takes to settle - without
+# this the state flips twice and the radios end up wherever the race lands.
+stamp=/tmp/.wifi-button.stamp
+now=$(date +%s)
+if [ -f "$stamp" ]; then
+	last=$(cat "$stamp" 2>/dev/null)
+	[ -n "$last" ] && [ $((now - last)) -lt 3 ] && exit 0
+fi
+echo "$now" > "$stamp"
+
+# Decide from what the radios are actually doing, not from uci: `disabled` may
+# be unset (meaning enabled) and a failed reload leaves uci and reality out of
+# sync.
+if iw dev 2>/dev/null | grep -q 'Interface'; then
+	target=1
+else
+	target=0
+fi
 
 i=0
 while uci -q get "wireless.@wifi-device[$i]" >/dev/null 2>&1; do
 	uci set "wireless.@wifi-device[$i].disabled=$target"
 	i=$((i + 1))
 done
-
 uci commit wireless
-wifi reload
-logger -t wifi-button "wireless radios disabled=$target"
+
+# Log before reloading: `wifi reload` blocks for several seconds when tearing
+# radios down, and when it was called synchronously the key appeared dead
+# because the script never got past it.
+logger -t wifi-button "radios disabled=$target"
+
+# Run the reload detached so the button handler returns immediately.
+( wifi reload >/dev/null 2>&1 & )

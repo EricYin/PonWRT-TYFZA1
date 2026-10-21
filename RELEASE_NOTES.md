@@ -1,3 +1,42 @@
+## v0.8.1-pt1570-lan14
+
+### 本版内容
+
+- **修好无线键（上一版几乎不可用）**。三个问题叠在一起：
+
+  1. **`wifi reload` 是同步调用**，拆 radio 时它会阻塞好几秒，
+     脚本卡在那里，`logger` 那行永远执行不到，按键也像是"没反应"；
+     而 `disabled` 其实已经被改了 —— 于是按几次之后 WiFi 关了，再按却打不开。
+  2. **状态判断依赖 uci 的 `disabled`**，但这个值可能是"未设置"（表示启用），
+     而且 reload 失败时 uci 和现实会脱节。
+  3. **没有防抖**，按键抖动或连按会让状态翻转两次。
+
+  改成：
+
+  ```sh
+  # 3 秒防抖
+  stamp=/tmp/.wifi-button.stamp
+  ...
+
+  # 用实际接口判断，不看 uci
+  if iw dev 2>/dev/null | grep -q 'Interface'; then target=1; else target=0; fi
+
+  uci commit wireless
+  logger -t wifi-button "radios disabled=$target"   # 先记日志
+
+  ( wifi reload >/dev/null 2>&1 & )                 # 再异步 reload
+  ```
+
+  设备上实测：
+
+  ```
+  第一次：disabled=1  接口数 0  日志 radios disabled=1
+  第二次：disabled=0  接口数 2  日志 radios disabled=0
+  ```
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、无线键改 radio 开关、
+  LAN 口指示灯错位修正、注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
 ## v0.8.1-pt1570-lan13
 
 ### 本版内容
