@@ -64,7 +64,14 @@
 			 * "wps" was rejected at image build time because the
 			 * wifi-scripts package also owns /etc/rc.button/wps. */
 			label = "rfkill";
-			linux,code = <KEY_WPS_BUTTON>;
+			/* gpio-button-hotplug picks the script from linux,code, not from
+			 * label: it looks the code up in a fixed table (BTN_0..9,
+			 * KEY_LIGHTS_TOGGLE, KEY_RESTART, KEY_RFKILL, ...) and drops the
+			 * button entirely when the code is absent. KEY_WPS_BUTTON is not
+			 * in that table, which is why this key produced no events at all
+			 * no matter what its label was. KEY_RFKILL maps to
+			 * /etc/rc.button/rfkill, which toggles every radio. */
+			linux,code = <KEY_RFKILL>;
 			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};

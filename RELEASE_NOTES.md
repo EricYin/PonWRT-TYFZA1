@@ -1,3 +1,45 @@
+## v0.8.1-pt1570-lan19
+
+### 本版内容
+
+- **修复无线键完全无响应（真正的根因）**。
+
+  之前两次改 `label`（`wifi` → `wps` → `rfkill`）都没用，因为
+  **`gpio-button-hotplug` 根本不看 `label`** —— 它用 `linux,code`
+  去查一张固定的映射表：
+
+  ```c
+  static const struct bh_map button_map[] = {
+      BH_MAP(BTN_0, "BTN_0"), ... BH_MAP(BTN_9, "BTN_9"),
+      BH_MAP(KEY_BRIGHTNESS_ZERO, "brightness_zero"),
+      BH_MAP(KEY_CONFIG, "config"), BH_MAP(KEY_COPY, "copy"),
+      BH_MAP(KEY_EJECTCD, "eject"), BH_MAP(KEY_HELP, "help"),
+      BH_MAP(KEY_LIGHTS_TOGGLE, "lights_toggle"),
+      BH_MAP(KEY_PHONE, "phone"), BH_MAP(KEY_POWER, "power"),
+      BH_MAP(KEY_POWER2, "reboot"), BH_MAP(KEY_RESTART, "reset"),
+      BH_MAP(KEY_RFKILL, "rfkill"),
+      ...
+  };
+
+  bdata->map_entry = button_get_index(button->code);
+  if (bdata->map_entry < 0) {
+      dev_err(dev, "does not support key code:%u\n", button->code);
+      /* 直接跳过这个按键 */
+  }
+  ```
+
+  **`KEY_WPS_BUTTON` 不在这张表里**，所以无线键在驱动 probe 阶段就被丢弃了，
+  后面无论 `label` 叫什么都不会有任何事件。
+
+  现在 `btn-wifi` 的 `linux,code` 改为 **`KEY_RFKILL`**，映射到
+  OpenWrt 自带的 `/etc/rc.button/rfkill`（radio 全开/全关）。
+
+  对照：另外两个键一直能用，因为 `KEY_RESTART` / `KEY_LIGHTS_TOGGLE`
+  本来就在表里。
+
+- 含 `v0.8.1-pt1570-lan18` 的全部内容：2.4G 跳过 FEM GPIO 配置、
+  体积测量步骤、缓存 keepalive。
+
 ## v0.8.1-pt1570-lan18
 
 ### 本版内容
