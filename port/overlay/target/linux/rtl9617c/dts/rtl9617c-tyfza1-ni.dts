@@ -12,7 +12,11 @@
 	reg-names = "ni", "xram", "dma-lso", "qm-axi-reorder", "block-reset",
 		    "l3fe-axi-reorder";
 	realtek,qm-rx;
-	realtek,lan-phys = <&phy0 &phy1 &phy2 &phy3>;
+	/* PT1570-R10: the panel is silkscreened LAN1..LAN4 left to right, but the
+	 * PHY/port order is reversed (port 0 drives panel LAN4). Reversing the
+	 * list makes Linux lan1 = panel LAN1, which matches the labels and the
+	 * LED wiring. */
+	realtek,lan-phys = <&phy3 &phy2 &phy1 &phy0>;
 	interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 };
 

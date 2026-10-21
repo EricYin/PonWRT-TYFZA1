@@ -126,7 +126,9 @@ while (true) {
 		key = mode + ':' + session + ':' + auth;
 		if (key != auth_key) {
 			if (link.enabled == '1' && state == 'O5')
-				current = auth == 1 ? 1 : auth > 1 ? 0 : 250;
+				/* China Mobile authenticates by serial number and never reports an
+				 * OMCI auth result, so treat an established path set as success. */
+				current = (auth == 1 || (omci != null && +omci.paths > 0 && +omci.error == 0)) ? 1 : auth > 1 ? 0 : 250;
 			auth_key = key;
 		}
 	}

@@ -1,3 +1,19 @@
+## v0.8.1-pt1570-lan-fix
+
+### 本版内容
+
+- **LAN 口顺序纠正**。面板丝印 LAN1..LAN4 从左到右，但 PHY/port 顺序相反
+  （port 0 驱动面板 LAN4）。`rtl9617c-tyfza1-ni.dts` 反转 `realtek,lan-phys`，
+  使 Linux `lan1` 对应面板 LAN1；`94-tyfza1-leds` 的 `lan_devs` 同步反转为
+  `lan4 lan3 lan2 lan1`，保证 `LED_EPHY0`（物理在面板 LAN4）绑定 `lan4`。
+
+- **注册灯不再误闪**。中国移动按 SN 认证，`pon-omcid` 不会上报 OMCI auth 结果
+  （`/var/run/pon-omci` 里 `auth=0`，但 `paths=6` 业务已通）。
+  `leds.uc` 原来只看 `auth == 1`，导致 O5 状态下仍闪 250 模式。
+  现在把"业务路径已建立且无错误"也视为注册成功，灯常亮。
+
+- 保留三个按键修正（bank3: lights=99, wifi=103）与 PON 相关修复。
+
 ## v0.8.1-pt1570-keys2
 
 ### 本版内容
