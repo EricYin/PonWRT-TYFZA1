@@ -1,6 +1,5 @@
 config pon 'pon'
 	option enabled '1'
 	option llid_count '1'
-	# PT1570-R10 carries a 10G-EPON asymmetric BOSA (UX3361); the stock config
-	# reports xgpon, which does not match the hardware.
-	option mode 'epon-d10g'
+	# PT1570-R10 is XG-PON, same as TYFZA1; the stock value is already correct.
+	option mode 'xgpon'

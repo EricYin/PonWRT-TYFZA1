@@ -39,7 +39,8 @@ PonWRT-TYFZA1 是面向天翼 TYFZA1 光猫的 OpenWrt 适配项目。设备采�
 | `tyfza1-custom` | **TYFZA1 + 自用软件包** | 保持原厂 TYFZA1 硬件适配不变，只叠加自用软件包（`v0.8.7-custom`） |
 
 - 两条分支**不合并**，各自独立演进
-- PT1570 的硬件差异、驱动改动和已知问题见 **[PT1570-SPEC.md](PT1570-SPEC.md)**
+- PT1570 的硬件差异（UBI 卷号、按键 bank、LAN 反序、MSA 光模块）在各版本的
+  `RELEASE_NOTES.md` 中有记录
 - Release 标签前缀区分：`v0.8.1-pt1570-*` 属于 PT1570 分支
 
 ## 下载固件
