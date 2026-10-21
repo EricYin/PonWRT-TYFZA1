@@ -56,7 +56,7 @@
 			debounce-interval = <60>;
 		};
 		btn-wifi {
-			label = "wps";
+			label = "wifi";
 			linux,code = <KEY_WPS_BUTTON>;
 			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;

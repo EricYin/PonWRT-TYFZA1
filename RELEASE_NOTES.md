@@ -1,3 +1,27 @@
+## v0.8.1-pt1570-lan12
+
+### 本版内容
+
+- **无线键改为「无线开关」**。它原本绑的是 `wps`，但固件的 wpad 是 basic 版
+  不带 WPS，按下去完全没有效果。改成开关更实用：
+
+  - DTS label 从 `wps` 改为 `wifi`（`linux,code` 保持不变）
+  - 新增 `/etc/rc.button/wifi`：按一下关闭所有 radio，再按一下打开
+
+  ```sh
+  current=$(uci -q get wireless.@wifi-device[0].disabled)
+  [ "$current" = "1" ] && target=0 || target=1
+  # 遍历所有 wifi-device，写 disabled=$target
+  uci commit wireless
+  wifi reload
+  ```
+
+  `wifi reload` 会重启 hostapd，所以连按两次也等于「重启无线」。
+
+- 含 `v0.8.1-pt1570-lan11` 的全部内容：灯光键与无线键 GPIO 交换、
+  LAN 口指示灯错位修正、注册灯每个 tick 重算、工具链缓存、
+  sysupgrade LEB 对齐写入、`DISTRIB_REVISION` 改为 commit。
+
 ## v0.8.1-pt1570-lan11
 
 ### 本版内容
