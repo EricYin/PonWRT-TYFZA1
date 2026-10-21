@@ -1,27 +1,27 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-only
-#
-# PT1570-R10 front-panel "wireless" key: toggle every radio.
-#
-# The stock firmware uses this key for WPS, but this firmware ships a basic
-# wpad without WPS support, so the key had no effect at all.
-
 [ "$ACTION" = "released" ] || exit 0
 
-# Debounce. A mechanical key bounces, and gpio-button-hotplug can also deliver
-# pressed/released pairs faster than `wifi reload` takes to settle - without
-# this the state flips twice and the radios end up wherever the race lands.
+# Record every release with its hold time. Without this a "the key does
+# nothing" report is ambiguous: it could be that the hotplug module never saw
+# the press, or that the script ran and decided to skip.
+logger -t wifi-button "released seen=${SEEN:-?}"
+
 stamp=/tmp/.wifi-button.stamp
 now=$(date +%s)
 if [ -f "$stamp" ]; then
 	last=$(cat "$stamp" 2>/dev/null)
-	[ -n "$last" ] && [ $((now - last)) -lt 3 ] && exit 0
+	if [ -n "$last" ] && [ $((now - last)) -lt 3 ]; then
+		logger -t wifi-button "debounced (${last})"
+		exit 0
+	fi
 fi
 echo "$now" > "$stamp"
 
-# Decide from what the radios are actually doing, not from uci: `disabled` may
-# be unset (meaning enabled) and a failed reload leaves uci and reality out of
-# sync.
+# Serialise: a reload left running from the previous press would otherwise
+# fight with this one.
+exec 9>/tmp/.wifi-button.lock
+flock -n 9 || { logger -t wifi-button "busy, ignored"; exit 0; }
+
 if iw dev 2>/dev/null | grep -q 'Interface'; then
 	target=1
 else
@@ -34,11 +34,10 @@ while uci -q get "wireless.@wifi-device[$i]" >/dev/null 2>&1; do
 	i=$((i + 1))
 done
 uci commit wireless
-
-# Log before reloading: `wifi reload` blocks for several seconds when tearing
-# radios down, and when it was called synchronously the key appeared dead
-# because the script never got past it.
 logger -t wifi-button "radios disabled=$target"
 
-# Run the reload detached so the button handler returns immediately.
-( wifi reload >/dev/null 2>&1 & )
+if [ "$target" = "1" ]; then
+	wifi down >/dev/null 2>&1
+else
+	wifi up >/dev/null 2>&1
+fi
