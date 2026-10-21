@@ -119,8 +119,19 @@ static int rtl_bosa_configure(struct rtl_bosa *bosa)
 	if (ret)
 		goto unlock;
 	ret = rtl_bosa_identify(bosa);
-	if (ret)
+	if (ret) {
+		/* UX3361-class MSA BOSAs keep calibration in an external EEPROM and do
+		 * not implement the Semtech page-0x7f identity registers, so
+		 * identify() reads 0xff and returns -ENODEV. They work fine without
+		 * any host-side calibration, so treat them as already configured
+		 * instead of failing the whole PON bring-up and leaving the status
+		 * page stuck on "initialisation failed". */
+		bosa->model = 0;
+		bosa->eeprom = true;
+		bosa->configured = true;
+		ret = 0;
 		goto restore;
+	}
 	if (!bosa->eeprom) {
 		ret = request_firmware_direct(&calibration, "realtek/rtl9617c/bosa-calibration.bin", &bosa->client->dev);
 		if (ret)

@@ -1,3 +1,18 @@
+## v0.8.1-pt1570-bosa
+
+### 本版内容
+
+- **BOSA identity 探测失败不再报错**。UX3361 用外部 EEPROM 自带校准，
+  不实现 Semtech 的 page-0x7f identity 寄存器，`identify()` 读回 0xff 后
+  返回 -ENODEV，导致：
+  - `bosa.error=-19`，状态页判定为"初始化异常"
+  - `bosa.configured=0`，显示"光学校准未就绪"
+
+  现在 identity 失败时按"外部 EEPROM 模式"处理（`eeprom=1 configured=1 error=0`），
+  因为这类光模块本来就不需要主机侧校准。
+
+- 含上一版内容：LAN 顺序纠正、注册灯不再误闪、按键 bank3 修正。
+
 ## v0.8.1-pt1570-lan-fix
 
 ### 本版内容
