@@ -1,3 +1,19 @@
+## v0.8.1-pt1570-keys2
+
+### 本版内容
+
+- **修正三个按键的 GPIO 编号**。通过 U-Boot 直接读取输入寄存器、
+  逐键按压确认：
+  - 复位 `bank0 pin8` = **GPIO 8**
+  - 灯光 `bank3 pin3` = **GPIO 99**
+  - 无线 `bank3 pin7` = **GPIO 103**
+
+  之前的 71 / 67 是错的。原厂 FDT 里写作 `<&gpio2 7>` / `<&gpio2 3>`，
+  但该 phandle 实际解析到 `bank@3`（节点名与 ranges 索引错位），
+  所以读 bank2 永远是 0。
+
+- 保留 `CONFIG_INPUT` 与 PON 修复（BOSA 容错、onu_mac 回退、xgpon 默认）。
+
 ## v0.8.1-pt1570-input
 
 ### 本版内容
