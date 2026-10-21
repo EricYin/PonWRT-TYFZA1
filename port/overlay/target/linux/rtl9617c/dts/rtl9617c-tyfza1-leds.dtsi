@@ -27,9 +27,14 @@
 	};
 
 	/*
-	 * PT1570-R10 carries three front-panel keys. The GPIO numbers come from the
-	 * stock running FDT (/gpio-keys): the Taurus block exposes five 32-pin
-	 * banks, so bank@0 pin 8 is global 8 and bank@2 pins 7/3 are global 71/67.
+	 * PT1570-R10 carries three front-panel keys. GPIO numbers were established
+	 * by dumping the raw input registers from U-Boot while pressing each key:
+	 *   reset  -> bank0 pin8  = 8
+	 *   lights -> bank3 pin3  = 99
+	 *   wifi   -> bank3 pin7  = 103
+	 * The stock FDT labels these as <&gpio2 7> / <&gpio2 3>, but that phandle
+	 * actually resolves to bank@3 (node name and range index are off by one),
+	 * which is why reading bank2 always returned zero.
 	 *
 	 * The stock node used "gpio-keys" (interrupt driven); polling is kept here
 	 * because the native GPIO driver does not wire up the bank interrupts.
@@ -47,13 +52,13 @@
 		btn-led {
 			label = "lights_toggle";
 			linux,code = <KEY_LIGHTS_TOGGLE>;
-			gpios = <&gpio0 71 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 		btn-wifi {
 			label = "wps";
 			linux,code = <KEY_WPS_BUTTON>;
-			gpios = <&gpio0 67 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 	};
