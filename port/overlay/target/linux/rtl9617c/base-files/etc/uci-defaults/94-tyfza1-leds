@@ -9,11 +9,17 @@ case "$(board_name)" in
 		usb_led=LED_USB1
 		;;
 	*)
-		# PT1570-R10 panel is silkscreened LAN1..LAN4 left to right, while the
-		# PHY/port order is reversed; rtl9617c-tyfza1-ni.dts reverses lan-phys
-		# so Linux lan1 == panel LAN1, which means LED_EPHY0 (physically on
-		# panel LAN4) must bind to lan4.
-		lan_devs="lan4 lan3 lan2 lan1"
+		# PT1570-R10 panel is silkscreened LAN1..LAN4 left to right, but the
+		# PHY/port order is reversed: Linux lan1 is the jack labelled LAN4, and
+		# LED_EPHY0 (GPIO4) sits next to that same jack. So the LED list has to
+		# stay in natural order - LED_EPHY0 -> lan1, LED_EPHY1 -> lan2, ... -
+		# which is exactly what this default does.
+		#
+		# Do NOT reverse this list. An earlier version did, to match a
+		# device-tree experiment that reversed realtek,lan-phys; that experiment
+		# broke the data path and was reverted, but this list was left reversed,
+		# so plugging into panel LAN4 lit the LED on panel LAN1.
+		lan_devs="lan1 lan2 lan3 lan4"
 		usb_led=LED_USB0
 		;;
 esac

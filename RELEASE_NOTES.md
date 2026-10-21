@@ -1,3 +1,35 @@
+## v0.8.1-pt1570-lan10
+
+### 本版内容
+
+- **修正 LAN 口指示灯错位**。插在面板 `LAN4` 会点亮面板 `LAN1` 的灯。
+
+  根因：早前为了让"软件 lan1 == 面板 LAN1"做过一次设备树反转实验
+  （把 `realtek,lan-phys` 反序），同时把 `94-tyfza1-leds` 里的
+  `lan_devs` 改成了 `lan4 lan3 lan2 lan1` 来配合。那个实验**破坏了数据通路**
+  （`rx_packets` 恒为 0）后被回滚，但 `lan_devs` **忘了改回来**。
+
+  于是当前映射是：
+
+  | LED | 实际绑定的接口 | 应该绑定 |
+  | --- | --- | --- |
+  | `LED_EPHY0`（面板 LAN4 的灯） | `lan4` | **`lan1`** |
+  | `LED_EPHY1`（面板 LAN3 的灯） | `lan3` | **`lan2`** |
+  | `LED_EPHY2`（面板 LAN2 的灯） | `lan2` | **`lan3`** |
+  | `LED_EPHY3`（面板 LAN1 的灯） | `lan1` | **`lan4`** |
+
+  插在面板 LAN4 时，软件接口是 `lan1`（UP），而 `LED_EPHY3` 正好绑了 `lan1`，
+  所以亮的是面板 LAN1 的灯。
+
+  现在 `lan_devs` 恢复为 `lan1 lan2 lan3 lan4`（自然顺序）：
+  `LED_EPHY0` → `lan1` → 面板 LAN4，以此类推。
+
+  2.5G 变体那一支的 `lan_devs` 保持不变——那块板子的 PHY 顺序本来就不同。
+
+- 含 `v0.8.1-pt1570-lan9` 的全部内容：注册灯每个 tick 重算、
+  工具链缓存、sysupgrade LEB 对齐写入、`DISTRIB_REVISION` 改为 commit、
+  瓦片排成一行。
+
 ## v0.8.1-pt1570-lan9
 
 ### 本版内容
