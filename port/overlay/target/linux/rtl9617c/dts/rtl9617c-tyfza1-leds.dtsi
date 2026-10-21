@@ -52,13 +52,13 @@
 		btn-led {
 			label = "lights_toggle";
 			linux,code = <KEY_LIGHTS_TOGGLE>;
-			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 		btn-wifi {
 			label = "wps";
 			linux,code = <KEY_WPS_BUTTON>;
-			gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 	};

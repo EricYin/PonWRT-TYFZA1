@@ -1,3 +1,25 @@
+## v0.8.1-pt1570-lan11
+
+### 本版内容
+
+- **交换灯光键与无线键的 GPIO**。两个键的物理位置和 label 绑反了：
+
+  | 物理按键 | 实际触发 | 应该触发 |
+  | --- | --- | --- |
+  | 灯光 | `wps`（GPIO 99）→ wpad 不支持，**无反应** | `lights_toggle` |
+  | 无线 | `lights_toggle`（GPIO 103）→ **所有灯全灭** | `wps` |
+
+  现象正好印证：按「无线」键灯全灭（`lights_toggle` 把 LED mode 切到 0），
+  按「灯光」键毫无反应（`/etc/rc.button/wps` 遍历 `/etc/rc.wps/*`，
+  但固件的 wpad 是 basic 版，没有 WPS 功能）。
+
+  现在 `btn-led` 绑 GPIO 103、`btn-wifi` 绑 GPIO 99。
+  测试夹具同步更新（board 0 的 `btn-wifi` 继承主 DTSI，也跟着变成 99）。
+
+- 含 `v0.8.1-pt1570-lan9`/`lan10` 的全部内容：LAN 口指示灯错位修正、
+  注册灯每个 tick 重算、工具链缓存、sysupgrade LEB 对齐写入、
+  `DISTRIB_REVISION` 改为 commit、瓦片排成一行。
+
 ## v0.8.1-pt1570-lan10
 
 ### 本版内容
