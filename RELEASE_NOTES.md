@@ -1,3 +1,37 @@
+## v0.8.1-pt1570-lan8
+
+### 本版内容
+
+- **修复 `sysupgrade` 写不进 rootfs（重要）**。之前每次升级都能跑完、设备也重启，
+  但 rootfs 内容不变、overlay 却被清空，看起来像"升级没生效"。
+
+  根因：`ubiupdatevol()` 在数据正好落在 LEB 边界上时会**静默失败**。
+  这块板子的 rootfs 是 20,916,044 字节，写进 165 LEB 的卷（20,951,040 字节），
+  **余量只有 34,996 字节**。
+
+  `platform_do_upgrade()` 不再走 `nand_do_upgrade()`，改为自己写：
+  先解出 kernel / root，`nand_upgrade_prepare_ubi` 准备好卷，
+  然后把 rootfs **pad 到 LEB 整数倍**再写入，彻底避开边界情况。
+  多出来的零字节位于 squashfs 超级块之后，永远不会被读取。
+
+- **`DISTRIB_REVISION` 改为反映实际 commit**。之前它恒为 `r0-79bc56c`
+  （构建脚本写死的 baseline），导致：
+
+  - LuCI 的静态资源 URL 是 `...?v=${resource_version}`，
+    这个值不变 → **浏览器永远用旧缓存**，每次刷完固件 UI 都像没变
+  - 排查时无法用版本号判断固件有没有刷进去（我因此误判了两次）
+
+  现在 `build.sh` 在 `make defconfig` 之后写入
+  `CONFIG_VERSION_REVISION="r0-<commit>"`，每次构建都会变。
+
+- **状态页 5 个瓦片排成一行**。grid 从 `minmax(260px)` + 18px 间距
+  改成 `minmax(190px)` + 12px 间距：5 个瓦片所需宽度从 1372px 降到 998px，
+  1000px 以上的视口都能一行放下。
+
+- 含 `v0.8.1-pt1570-lan7` 的全部内容：视图改回 `overview.js`、
+  LAN 映射回滚、升级检查收紧为 PT1570 专属、`model` 改为
+  `YHTC PT1570-R10`、描述样式对齐 Argon。
+
 ## v0.8.1-pt1570-lan7
 
 ### 本版内容

@@ -31,6 +31,14 @@ if ! grep -Fq 'regulatory.db.p7s' package/firmware/wireless-regdb/Makefile; then
     REGDB_PATCHED=1
 fi
 make defconfig
+# Stamp the real commit into DISTRIB_REVISION. LuCI builds its static-asset URLs
+# as "...?v=${resource_version}", and resource_version comes from this string -
+# so if it never changes, the browser keeps serving the previous UI after an
+# upgrade and every flash looks like it did nothing. A fixed "r0-79bc56c" is
+# what shipped before; derive it from the commit instead.
+revision="${GITHUB_SHA:-$(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo 0000000)}"
+sed -i "/^CONFIG_VERSION_REVISION=/d" .config
+printf 'CONFIG_VERSION_REVISION="r0-%s"\n' "$(printf '%s' "$revision" | cut -c1-7)" >> .config
 for package in luci-app-tyfza1-pon luci-theme-argon luci-i18n-argon-config-zh-cn; do
     grep -qx "CONFIG_PACKAGE_$package=y" .config || {
         echo "Required firmware package missing after defconfig: $package" >&2

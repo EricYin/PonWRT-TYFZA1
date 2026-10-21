@@ -67,5 +67,52 @@ platform_do_upgrade() {
 	esac
 	CI_KERNPART="ubi_k$slot"
 	CI_ROOTPART="ubi_r$slot"
-	nand_do_upgrade "$1"
+	tyfza1_write_slots "$1"
+}
+
+# Write kernel and rootfs directly instead of going through nand_do_upgrade.
+#
+# ubiupdatevol() fails without a message when the payload ends exactly on a LEB
+# boundary. This board's rootfs is 20,916,044 bytes into a 165-LEB volume
+# (20,951,040 bytes) - only 34,996 bytes of slack - so the write silently did
+# nothing and the box rebooted on the old rootfs with a wiped overlay, which
+# looked exactly like "the upgrade had no effect".
+#
+# Padding the payload to a whole number of LEBs removes the boundary case. The
+# extra bytes sit past the end of the squashfs superblock and are never read.
+tyfza1_write_slots() {
+	local tar="$1"
+	local board_dir work kvol rvol ksize rsize pad
+	local leb=126976
+
+	board_dir=$(tar tf "$tar" | grep -m 1 '^sysupgrade-.*/$') || return 1
+	board_dir=${board_dir%/}
+	work=/tmp/tyfza1-upgrade
+	rm -rf "$work"
+	mkdir -p "$work" || return 1
+
+	tar xOf "$tar" "$board_dir/kernel" > "$work/kernel" || return 1
+	tar xOf "$tar" "$board_dir/root" > "$work/root" || return 1
+	ksize=$(wc -c < "$work/kernel")
+	rsize=$(wc -c < "$work/root")
+	[ "$ksize" -gt 0 ] && [ "$rsize" -gt 0 ] || {
+		echo "empty kernel or rootfs in $tar" >&2
+		return 1
+	}
+
+	nand_upgrade_prepare_ubi "$rsize" squashfs "$ksize" "" || return 1
+
+	kvol=$(nand_find_volume ubi0 "$CI_KERNPART") || return 1
+	rvol=$(nand_find_volume ubi0 "$CI_ROOTPART") || return 1
+
+	ubiupdatevol "/dev/$kvol" -s "$ksize" "$work/kernel" || return 1
+
+	pad=$(( (leb - rsize % leb) % leb ))
+	if [ "$pad" -gt 0 ]; then
+		dd if=/dev/zero bs=1 count="$pad" >> "$work/root" 2>/dev/null || return 1
+	fi
+	ubiupdatevol "/dev/$rvol" "$work/root" || return 1
+
+	rm -rf "$work"
+	return 0
 }
