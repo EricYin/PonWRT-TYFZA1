@@ -11,7 +11,11 @@ return view.extend({
 				ddm = pon.transceiver || {};
 			/* Standard MSA A2 DDM scaling: temperature 1/256 degC, voltage 0.1 mV,
 			 * bias 2 uA, tx/rx power 0.1 uW. */
-			function ddmTemp(v){ return v == null ? '未提供' : (+v / 256).toFixed(1) + ' °C'; }
+			/* Temperature is a signed 16-bit count, so negative readings wrap above
+			 * 0x7fff; convert before scaling. Voltage/bias/power are unsigned. */
+			function ddmTemp(v){ if (v == null) return '未提供';
+				var n = +v & 0xffff; if (n & 0x8000) n -= 0x10000;
+				return (n / 256).toFixed(1) + ' °C'; }
 			function ddmVolt(v){ return v == null ? '未提供' : (+v / 10000).toFixed(2) + ' V'; }
 			function ddmBias(v){ return v == null ? '未提供' : (+v / 500).toFixed(2) + ' mA'; }
 			function ddmPower(v){ return v == null || +v <= 0 ? '未提供' :
