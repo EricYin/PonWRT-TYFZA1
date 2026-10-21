@@ -7,11 +7,24 @@ return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
 		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。', initial, ui.snapshot, function(data) {
-			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {};
+			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
+				ddm = pon.transceiver || {};
+			/* Standard MSA A2 DDM scaling: temperature 1/256 degC, voltage 0.1 mV,
+			 * bias 2 uA, tx/rx power 0.1 uW. */
+			function ddmTemp(v){ return v == null ? '未提供' : (+v / 256).toFixed(1) + ' °C'; }
+			function ddmVolt(v){ return v == null ? '未提供' : (+v / 10000).toFixed(2) + ' V'; }
+			function ddmBias(v){ return v == null ? '未提供' : (+v / 500).toFixed(2) + ' mA'; }
+			function ddmPower(v){ return v == null || +v <= 0 ? '未提供' :
+				(10 * Math.log10(+v / 10000)).toFixed(2) + ' dBm'; }
 			return E('div', {}, [data.pon ? status.ponCard(pon) : E('p', { class: 'alert-message warning' }, 'PON 状态读取失败。'),
 				ui.grid([
 					ui.tile('运行协议', status.modes[(pon.serdes || {}).mode] || '未提供', '来自驱动实际运行模式'),
-					ui.tile('光口发射', optical.tx_disabled == null ? '未提供' : optical.tx_disabled === '1' ? '已关闭' : '已允许', '光功率 / 温度尚无读取接口'),
+					ui.tile('光口发射', optical.tx_disabled == null ? '未提供' : optical.tx_disabled === '1' ? '已关闭' : '已允许', '发送方向是否被关闭'),
+					ui.tile('温度', ddmTemp(ddm.temperature_raw), '光模块内部温度'),
+					ui.tile('电压', ddmVolt(ddm.voltage_raw), '光模块供电电压'),
+					ui.tile('偏置电流', ddmBias(ddm.bias_raw), '激光器偏置电流'),
+					ui.tile('发送光功率', ddmPower(ddm.tx_power_raw), '上行发光功率'),
+					ui.tile('接收光功率', ddmPower(ddm.rx_power_raw), '下行收光功率'),
 					ui.tile('光学校准', bosa.configured == null ? '未提供' : bosa.configured === '1' ? '已配置' : '未就绪', '沿用原厂数据加载机制')
 				]),
 				ui.grid([status.card('注册与认证', null, ui.authentication(pon)), status.offloadCard(pon)]),
