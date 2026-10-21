@@ -130,6 +130,18 @@ jobs:
         run: |
           export PATH="/usr/lib/llvm-18/bin:$PATH"
           sh port/scripts/build.sh sources/openwrt "$(nproc)" 2>&1 | tee artifacts/build.log
+      - name: Measure build tree sizes
+        if: always()
+        run: |
+          echo "=== staging_dir ==="
+          du -sh sources/openwrt/staging_dir/* 2>/dev/null | sort -h
+          echo "=== build_dir (top level) ==="
+          du -sh sources/openwrt/build_dir/* 2>/dev/null | sort -h
+          echo "=== build_dir total ==="
+          du -sh sources/openwrt/build_dir 2>/dev/null
+          echo "=== free space ==="
+          df -h /home/runner | tail -1
+
       - name: Verify built board variants
         run: |
           kernel=$(python3 port/tools/project_paths.py --kernel-directory sources/openwrt)
