@@ -6,7 +6,7 @@
 return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
-		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。', initial, ui.snapshot, function(data) {
+		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
 			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
 				ddm = pon.transceiver || {};
 			/* Tiles carry only the readings you glance at to decide whether the line
@@ -23,12 +23,12 @@ return view.extend({
 					ui.tile('接收光功率', status.ddm.power(ddm.rx_power_raw), '下行收光功率'),
 					ui.tile('发送光功率', status.ddm.power(ddm.tx_power_raw), '上行发光功率'),
 					ui.tile('温度', status.ddm.temperature(ddm.temperature_raw), '光模块内部温度'),
-					ui.tile('供电电压', status.ddm.voltage(ddm.voltage_raw), '光模块供电电压'),
 					ui.tile('光口发射', optical.tx_disabled == null ? '未提供' : optical.tx_disabled === '1' ? '已关闭' : '已允许', '发送方向是否被关闭'),
 					ui.tile('光学校准', bosa.configured == null ? '未提供' : bosa.configured === '1' ? '已配置' : '未就绪', '沿用原厂数据加载机制')
 				]),
-				ui.fold('光模块详情', 'module', [
+				ui.fold('光模块详情（电压 / 偏置 / 原始读数）', 'module', [
 					status.rows([
+						['供电电压', status.ddm.voltage(ddm.voltage_raw)],
 						['偏置电流', status.ddm.bias(ddm.bias_raw)],
 						['温度原始值', ddm.temperature_raw == null ? '未提供' : status.value(ddm.temperature_raw) + '（1/256 °C）'],
 						['DDM 来源', ddm.temperature_raw == null ? '未提供，光模块未上报' : '光模块 A2 页（MSA SFF-8472）'],
