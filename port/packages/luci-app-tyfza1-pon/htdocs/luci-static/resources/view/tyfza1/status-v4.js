@@ -6,7 +6,7 @@
 return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
-		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
+		var node = ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
 			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
 				ddm = pon.transceiver || {};
 			/* DDM scaling is kept local on purpose. Moving it into status.js would
@@ -66,6 +66,13 @@ return view.extend({
 				ui.note((data.board.model || 'TYFZA1') + ' · ' + ((data.board.release || {}).description || '固件信息未提供'))
 			]);
 		});
+		/* ui.page() emits its stylesheet link from status.js, which the browser
+		 * may still hold in cache - the ?v= there would stay stale and the new
+		 * rules would never load. Re-point the link at a fresh query so the
+		 * stylesheet is re-fetched regardless of the cached module. */
+		var link = node.querySelector('link[href*="tyfza1/status.css"]');
+		if (link) link.href = L.resource('tyfza1/status.css') + '?v=20261021r3';
+		return node;
 	},
 	handleSaveApply: null, handleSave: null, handleReset: null
 });

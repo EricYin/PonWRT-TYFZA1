@@ -119,6 +119,6 @@ return baseclass.extend({
 	modes: modes, value: value, ddm: ddm, badge: badge, rows: rows, card: card,
 	omciLive: omciLive, ponState: ponState, ponCard: ponCard, offloadCard: offloadCard,
 	// Track the CSS content independently of LuCI's version across sysupgrades.
-	style: function() { return E('link', { rel: 'stylesheet', href: L.resource('tyfza1/status.css') + '?v=9f264a673f8f' }); },
+	style: function() { return E('link', { rel: 'stylesheet', href: L.resource('tyfza1/status.css') + '?v=20261021r3' }); },
 	callStatus: callStatus
 });
