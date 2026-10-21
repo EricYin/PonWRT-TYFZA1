@@ -1,3 +1,33 @@
+## v0.8.1-pt1570-lan4
+
+### 本版内容
+
+- **升级检查收紧为 PT1570 专属**。上一版让 `tyfza1-storage.sh` 同时接受
+  `ubi0_3/ubi0_6`（PT1570）和 `ubi0_4/ubi0_7`（TYFZA1），这是错的：
+
+  两块板子的 DTS `compatible` 都是 `tianyi,tyfza1`，
+  `nand_do_platform_check()` 根本区分不了。**UBI 卷号是唯一可靠的判别依据**
+  （PT1570 没有 `ubi_fpga`，所有 ID 前移一位）。放宽之后，PT1570 的固件
+  刷到 TYFZA1 上会通过检查，然后写到错误的卷。
+
+  现在只接受 `ubi0_3/ubi0_6`，报错文案也点明：
+
+  ```
+  Unexpected root volume: ubi0_3 - this image is for PT1570-R10 (ubi0_3/ubi0_6) only
+  ```
+
+  TYFZA1 硬件请用 `tyfza1-custom` 分支。
+
+- **系统信息里的型号改为 PT1570**。`rtl9617c-tyfza1-ubi.dts` 的 `model`
+  从 `Tianyi TYFZA1 (RTL9617C UBI)` 改成 `YHTC PT1570-R10 (RTL9617C UBI)`，
+  `/tmp/sysinfo/model` 和 LuCI 的板型显示都会跟着变。
+
+  `compatible` 保持 `tianyi,tyfza1` 不动——驱动靠它匹配，改了会起不来。
+
+- 含上一版（`v0.8.1-pt1570-lan3`）的全部内容：LAN 映射回滚、
+  sysupgrade 卷号修复、ONU 界面统一、DDM 显示、BOSA 存活探测、
+  按键 bank3、`keep.d` 保护 factory 身份。
+
 ## v0.8.1-pt1570-lan3
 
 ### 本版内容

@@ -3,7 +3,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "rtl9617c-tyfza1-leds.dtsi"
 
-/ { model = "Tianyi TYFZA1 (native NI/DMA bring-up)"; };
+/ { model = "YHTC PT1570-R10 (native NI/DMA)"; };
 
 &{/soc/ethernet@4f4300000} {
 	reg = <4 0xf4300000 0 0x10000>, <0 0xf4500000 0 0x2000>,
