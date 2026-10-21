@@ -1,3 +1,54 @@
+## v0.8.1-pt1570-lan3
+
+### 本版内容
+
+- **回滚 LAN 映射反转（重要）**。上一版把 `phy-handle` 指向 `phy3`、
+  `realtek,lan-phys` 反转为 `<&phy3 &phy2 &phy1 &phy0>`，想纠正面板顺序，
+  结果把数据通路打断了：
+
+  ```
+  lan4: Link is Up - 1Gbps/Full - flow control off
+  br-lan: port 4(lan4) entered forwarding state
+  rx_packets = 0        <- 链路通了，但一个包都收不到
+  ```
+
+  **MAC port 与 PHY 是板上固定连线的**：port 0 只能连 phy0（mdio:01），
+  port 3 只能连 phy3（mdio:04）。把 `phy-handle` 指到 phy3 只是让 port 0
+  和错误的 PHY 协商出了链路，数据通路从未接通。
+
+  而且 `rtl_register_lans()` 里 **port 0 不读 `lan-phys`，它用 `phy-handle`**，
+  所以只反转 `lan-phys` 会让 port 0 和 port 3 都拿到 phy0，第二个
+  `phy_attach_direct()` 直接 `-EEXIST`，LAN4 根本注册不上。
+
+  现已恢复 `<&phy0 &phy1 &phy2 &phy3>` 并去掉 `phy-handle` 覆盖。
+  **面板顺序由硬件决定：Linux `lan1` 就是丝印 `LAN4`。**
+  要改接口名只能改驱动（`rtl_register_lan()` 里按 port 拼接口名的那行），
+  不是设备树能解决的。
+
+- **修正 sysupgrade 的 root 卷号检查**。`tyfza1-storage.sh` 硬编码期望
+  `ubi_r0 = ubi0_4` / `ubi_r1 = ubi0_7`（TYFZA1 布局）。PT1570-R10 没有
+  `ubi_fpga` 卷，所有 ID 前移一位，实际是 `ubi0_3` / `ubi0_6`，于是整包升级
+  被拒绝：
+
+  ```
+  Unexpected TYFZA1 root volume: ubi0_3
+  Image check failed.
+  ```
+
+  现在同时接受两种布局（`_3/_4` 与 `_6/_7`）。
+
+- **ONU 界面统一**（7 个页面）：
+  - 页面标题渲染为 Argon 风格的圆角卡片
+  - 描述文字移到卡片外，`font-size: small`、`line-height: 1.5`、
+    `padding: 0 var(--section-inset)`、颜色继承 `--text-strong`
+    ——完全照搬主题的 `.cbi-map-descr`
+  - 状态页瓦片收回到 5 个（收/发光功率、温度、光口发射、光学校准），
+    电压、偏置电流等移入「光模块详情」折叠
+  - 去掉顶级 `ONU` 菜单的 ACL 依赖
+
+- 含之前所有内容：DDM 显示、BOSA 存活探测、按键 bank3（99/103）、
+  `keep.d` 保护 factory 身份、FIT 槽位判据 `31:11`。
+
 ## v0.8.1-pt1570-lan2
 
 ### 本版内容
