@@ -1,3 +1,30 @@
+## v0.8.1-pt1570-lan16
+
+### 本版内容
+
+- **无线键不产生任何事件的真正原因：label 不在白名单里**。
+
+  上一版把按键 label 改成了 `wifi`，结果**连 hotplug 事件都不产生**——
+  `logread | grep wifi-button` 一条 `released` 都没有，而同一批注册的
+  `lights_toggle`（GPIO103）响应正常。
+
+  原因：OpenWrt 的 `gpio-button-hotplug` 有一张**固定的 label 表**：
+
+  ```
+  reset / wps / rfkill / lights_toggle
+  ```
+
+  **不在表里的 label 会被直接跳过**，不产生任何事件。`wifi` 不在表里。
+
+  现在 label 改回 `wps`（在表里），脚本也从 `/etc/rc.button/wifi`
+  改名为 `/etc/rc.button/wps`（覆盖 OpenWrt 的标准 WPS 脚本）。
+
+  **行为不变**——仍然是 radio 开关，label 只是内部标识，用户看不到。
+
+- 含 `v0.8.1-pt1570-lan15` 的全部内容：按键 GPIO 交换、无线键加锁 +
+  每次 released 记日志、LAN LED 修正、注册灯重算、工具链缓存、
+  sysupgrade LEB 对齐。
+
 ## v0.8.1-pt1570-lan15
 
 ### 本版内容
