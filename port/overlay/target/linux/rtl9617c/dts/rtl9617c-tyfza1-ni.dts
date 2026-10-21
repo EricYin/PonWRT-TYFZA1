@@ -13,9 +13,24 @@
 		    "l3fe-axi-reorder";
 	realtek,qm-rx;
 	/* PT1570-R10: the panel is silkscreened LAN1..LAN4 left to right, but the
-	 * PHY/port order is reversed (port 0 drives panel LAN4). Reversing the
-	 * list makes Linux lan1 = panel LAN1, which matches the labels and the
-	 * LED wiring. */
+	 * PHY order is reversed (phy0 drives panel LAN4). Reversing both lists
+	 * makes Linux lan1 = panel LAN1, which matches the labels and the LEDs.
+	 *
+	 * Careful: rtl_register_lans() reads realtek,lan-phys with index == port,
+	 * and port 0 does NOT use lan-phys at all - it uses phy-handle. So
+	 * lan-phys[0] is never read, and phy-handle has to be reversed too,
+	 * otherwise port 0 and port 3 both end up on phy0 (mdio:01) and the
+	 * second phy_attach_direct() fails with -EEXIST:
+	 *   sysfs: cannot create duplicate filename
+	 *   '/bus/mdio_bus/drivers/Generic PHY/4f4329118.mdio:01'
+	 *
+	 * Final mapping (port -> phy -> panel):
+	 *   port 0 -> phy-handle phy3 (mdio:04) -> LAN1
+	 *   port 1 -> lan-phys[1] phy2 (mdio:03) -> LAN2
+	 *   port 2 -> lan-phys[2] phy1 (mdio:02) -> LAN3
+	 *   port 3 -> lan-phys[3] phy0 (mdio:01) -> LAN4
+	 */
+	phy-handle = <&phy3>;
 	realtek,lan-phys = <&phy3 &phy2 &phy1 &phy0>;
 	interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 };

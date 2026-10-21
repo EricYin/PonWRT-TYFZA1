@@ -25,6 +25,11 @@
 
 &ni0 {
 	// Physical jacks use NI ports 0,1,2,4; internal port3 is unwired.
+	//
+	// phy-handle must be stated explicitly: the shared ni.dts points it at
+	// phy3 for PT1570-R10's reversed panel order, but this board keeps the
+	// original order, so port 0 stays on phy0 (mdio:01).
+	phy-handle = <&phy0>;
 	realtek,lan-phys = <&phy0 &phy1 &phy2 0 &phy4>;
 	phys = <&pcie_controls 5>;
 	phy-names = "sgmii";

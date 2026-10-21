@@ -1,3 +1,42 @@
+## v0.8.1-pt1570-lan2
+
+### 本版内容
+
+- **修正 LAN4 初始化失败（-EEXIST）**。上一版只反转了 `realtek,lan-phys`，
+  但 `rtl_register_lans()` 里 **port 0 根本不读 lan-phys，它用的是 `phy-handle`**：
+
+  ```c
+  phy = of_parse_phandle(parent->of_node,
+      port == priv->port ? "phy-handle" : "realtek,lan-phys",
+      port == priv->port ? 0 : port);
+  ```
+
+  `xram-lan.dts` 里 `realtek,port = <0>` 且 `phy-handle = <&phy0>`，
+  所以反转后 port0 仍是 phy0、port3 也是 phy0，第二次 `phy_attach_direct()`
+  报 `sysfs: cannot create duplicate filename '.../mdio:01'`，lan4 起不来。
+
+  现在 `phy-handle` 一起指向 `&phy3`：
+
+  | port | 来源 | PHY | 面板 |
+  |---|---|---|---|
+  | 0 | `phy-handle` | phy3 (mdio:04) | LAN1 |
+  | 1 | `lan-phys[1]` | phy2 (mdio:03) | LAN2 |
+  | 2 | `lan-phys[2]` | phy1 (mdio:02) | LAN3 |
+  | 3 | `lan-phys[3]` | phy0 (mdio:01) | LAN4 |
+
+  `lan-phys[0]` 从不被读取。2.5G 变体显式覆盖 `phy-handle = <&phy0>` 保持原顺序。
+
+- **修正注册灯常闪**。`leds.uc` 的缓存 key 是 `mode:session:auth`，**不含 state**。
+  开机时状态机还在 O1/O2，此时 key 就被固定；之后进入 O5 但 auth 一直是 0
+  （中国移动按 SN 认证，OMCI 不上报 auth 结果），key 不变 → 永远不重算 → 一直闪。
+  key 改为 `mode:session:auth:state`。
+
+- **sysupgrade 保留 `/etc/tyfza1-factory`**。新增
+  `lib/upgrade/keep.d/tyfza1-factory`，否则整包升级会丢掉本机 MAC/SN/校准，
+  而 `tyfza1-factory` 已不再回退到镜像内副本。
+
+- 含之前所有内容：DDM 显示、BOSA 存活探测、按键 bank3（99/103）、FIT 槽位 31:11。
+
 ## v0.8.1-pt1570-ddm2
 
 ### 本版内容
