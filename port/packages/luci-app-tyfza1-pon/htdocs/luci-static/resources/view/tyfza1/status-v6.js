@@ -3,6 +3,11 @@
 'require tyfza1.status as status';
 'require tyfza1.ui as ui';
 
+/* Bump per page load. The stylesheet link comes from ui.page()/status.js, both
+ * of which the browser may hold in cache, so the ?v= baked in there can be
+ * stale; a load-time stamp guarantees the CSS is re-fetched after any edit. */
+var CSS_V = Date.now();
+
 return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
@@ -71,7 +76,7 @@ return view.extend({
 		 * rules would never load. Re-point the link at a fresh query so the
 		 * stylesheet is re-fetched regardless of the cached module. */
 		var link = node.querySelector('link[href*="tyfza1/status.css"]');
-		if (link) link.href = L.resource('tyfza1/status.css') + '?v=20261021r4';
+		if (link) link.href = L.resource('tyfza1/status.css') + '?v=' + CSS_V;
 		/* ui.page() in the cached ui.js still nests the description inside the
 		 * heading card. Argon keeps it outside (see admin/system), so lift it
 		 * out here. Once the fixed ui.js ships this is a no-op. */

@@ -1,3 +1,24 @@
+## v0.8.1-pt1570-lan6
+
+### 本版内容
+
+- **修正 `menu.d` 指向**。`v0.8.1-pt1570-lan5` 的产物是坏的：
+  视图文件已改名 `status-v5.js` → `status-v6.js`，但 `menu.d` 里的
+  `path` 还停在 `tyfza1/status-v5`，**ONU 运行状态页会 404**。
+
+  那次改名只提交了文件、漏了菜单配置，改动一直留在工作区没进 tag。
+
+  现在 `path` 与文件一致：`tyfza1/status-v6`。
+
+- **描述文字样式对齐 Argon**（随本次一起进构建）：
+  `font-size: small`、`line-height: 1.5`、`padding: 0 var(--section-inset)`、
+  颜色继承 `--text-strong`，与主题的 `.cbi-map-descr` 完全一致。
+
+- **样式表版本改为动态**（`Date.now()`），以后改 CSS 不必再换文件名。
+
+- 含 `v0.8.1-pt1570-lan4` 的全部内容：LAN 映射回滚、升级检查收紧为
+  PT1570 专属、`model` 改为 `YHTC PT1570-R10`、测试夹具改 PT1570 布局。
+
 ## v0.8.1-pt1570-lan5
 
 ### 本版内容
