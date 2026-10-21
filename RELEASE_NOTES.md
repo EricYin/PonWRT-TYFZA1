@@ -1,3 +1,22 @@
+## v0.8.1-pt1570-bosa2
+
+### 本版内容
+
+- **BOSA 降级前先做存活探测**（修正上一版过于宽松的处理）。
+  identity 探测失败后不再直接当作"外部 EEPROM 模式"，而是：
+
+  1. 恢复页指针（`identify()` 会把它留在 0xff 或 2）
+  2. 读标准 MSA DDM 区 `0x60..0x63`（温度 / 电压）
+  3. **全部读回 0xff → 判定模块缺失或无响应，仍然返回 -ENODEV**
+  4. 只要有任一字节非 0xff → 确认是带 EEPROM 的 MSA 器件，
+     跳过主机侧校准（`eeprom=1 configured=1 error=0`）
+
+  这样真实的 BOSA 故障仍会报错，只有"器件活着但不认 Semtech 身份协议"
+  的情况才降级。对应原厂 `Detecting UX3361 ... EEPROM exists, do NOT do
+  initialization` 的行为。
+
+- 含 LAN 顺序纠正、注册灯修正、按键 bank3 修正。
+
 ## v0.8.1-pt1570-bosa
 
 ### 本版内容
