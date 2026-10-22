@@ -114,5 +114,14 @@ tyfza1_write_slots() {
 	ubiupdatevol "/dev/$rvol" "$work/root" || return 1
 
 	rm -rf "$work"
+
+	# nand_do_upgrade() would have called this from nand_do_upgrade_success().
+	# Because tyfza1_write_slots() replaces that whole path, the call has to be
+	# made here explicitly - otherwise the upgrade finishes "successfully" but
+	# the new rootfs_data volume stays empty, and the box comes back with no
+	# root password, no PPPoE account and default Wi-Fi settings. That is
+	# exactly what happened on the first real run of this function.
+	nand_do_restore_config || return 1
+
 	return 0
 }
