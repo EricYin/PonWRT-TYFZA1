@@ -30,6 +30,17 @@ if ! grep -Fq 'regulatory.db.p7s' package/firmware/wireless-regdb/Makefile; then
     patch -p1 --fuzz=0 < "$PORT/host-patches/110-wireless-regdb-signed.patch"
     REGDB_PATCHED=1
 fi
+# DISTRIB_REVISION is built from version.mk's VERSION_CODE, which falls back to
+# REVISION when CONFIG_VERSION_CODE is empty. Setting CONFIG_VERSION_CODE in
+# .config alone did not survive: the value was still r0-79bc56c in lan20, so the
+# oldconfig pass in `make world` drops or overrides it. Stamp the fallback that
+# version.mk itself reads, and keep the Kconfig value as a second attempt.
+rev="r0-$(printf '%s' "${GITHUB_SHA:-$(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo 0000000)}" | cut -c1-7)"
+sed -i "s|^# REVISION:=x|REVISION:=$rev|" "$TREE/include/version.mk"
+grep -q "^REVISION:=$rev" "$TREE/include/version.mk" || {
+    echo "Failed to stamp REVISION in $TREE/include/version.mk" >&2
+    exit 1
+}
 make defconfig
 # Stamp the real commit into DISTRIB_REVISION. LuCI builds its static-asset URLs
 # as "...?v=${resource_version}", and resource_version comes from this string -

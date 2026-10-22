@@ -121,7 +121,37 @@ tyfza1_write_slots() {
 	# the new rootfs_data volume stays empty, and the box comes back with no
 	# root password, no PPPoE account and default Wi-Fi settings. That is
 	# exactly what happened on the first real run of this function.
+	echo "tyfza1_write_slots: config backup $([ -f /tmp/sysupgrade.tgz ] && echo present || echo MISSING)"
 	nand_do_restore_config || return 1
 
+	return 0
+}
+
+# do_stage2 calls platform_copy_config() after platform_do_upgrade() whenever
+# UPGRADE_BACKUP is set. nand_do_upgrade() handles the backup internally, but
+# tyfza1_write_slots() bypasses it, and /tmp/sysupgrade.tgz was not visible to
+# nand_do_restore_config() during the two lan20 test upgrades - the config came
+# back empty both times. Implementing the documented hook lets the framework
+# hand us the real backup path instead of relying on a hard-coded one.
+platform_copy_config() {
+	local ubidev ubivol
+
+	[ -n "$UPGRADE_BACKUP" ] && [ -f "$UPGRADE_BACKUP" ] || {
+		echo "platform_copy_config: no backup at '$UPGRADE_BACKUP'" >&2
+		return 1
+	}
+
+	ubidev=$(nand_find_ubi "${CI_UBIPART:-ubi_device}") || return 1
+	ubivol=$(nand_find_volume "$ubidev" rootfs_data) || return 1
+
+	mkdir -p /tmp/new_root
+	mount -t ubifs "/dev/$ubivol" /tmp/new_root || {
+		echo "platform_copy_config: cannot mount $ubivol" >&2
+		return 1
+	}
+
+	cp -a "$UPGRADE_BACKUP" "/tmp/new_root/$BACKUP_FILE" && sync
+	umount /tmp/new_root
+	echo "platform_copy_config: configuration saved to $ubivol"
 	return 0
 }
