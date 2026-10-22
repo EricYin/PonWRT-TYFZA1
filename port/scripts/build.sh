@@ -36,9 +36,15 @@ make defconfig
 # so if it never changes, the browser keeps serving the previous UI after an
 # upgrade and every flash looks like it did nothing. A fixed "r0-79bc56c" is
 # what shipped before; derive it from the commit instead.
+#
+# The symbol is CONFIG_VERSION_CODE, NOT CONFIG_VERSION_REVISION. version.mk
+# derives DISTRIB_REVISION from VERSION_CODE, and CONFIG_VERSION_REVISION is not
+# a declared Kconfig symbol anywhere, so writing it was silently discarded and
+# DISTRIB_REVISION kept falling back to the git-describe default. VERSION_CODE
+# is declared in package/base-files/image-config.in.
 revision="${GITHUB_SHA:-$(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo 0000000)}"
-sed -i "/^CONFIG_VERSION_REVISION=/d" .config
-printf 'CONFIG_VERSION_REVISION="r0-%s"\n' "$(printf '%s' "$revision" | cut -c1-7)" >> .config
+sed -i "/^CONFIG_VERSION_CODE=/d" .config
+printf 'CONFIG_VERSION_CODE="r0-%s"\n' "$(printf '%s' "$revision" | cut -c1-7)" >> .config
 for package in luci-app-tyfza1-pon luci-theme-argon luci-i18n-argon-config-zh-cn; do
     grep -qx "CONFIG_PACKAGE_$package=y" .config || {
         echo "Required firmware package missing after defconfig: $package" >&2
