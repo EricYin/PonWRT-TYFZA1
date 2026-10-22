@@ -109,24 +109,19 @@ static inline void rtl_ax_bb_dm_gpio_start(const struct rtl_ax_io *io, unsigned 
 			rtl_ax_update32(io, reg, 3U << shift, value << shift);
 		}
 	}
-	/* Only the 5G radio (8852C) drives an external FEM on this board.
-	 * The 2.4G radio (8192XB) uses its internal PA/LNA, and the original
-	 * firmware has a separate gpio_setting_init_XB@2f0218 for it rather
-	 * than reusing this one. Programming PAPE/TRSW/LNA for 2.4G made the
-	 * chip assume a FEM gain that does not exist, which left the 2.4G
-	 * transmitter far below its intended power - clients could not see
-	 * the AP at all. */
-	if (chip == RTL_AX_8852C) {
-		for (path = 0; path < 2; path++) {
-			unsigned int reg = path ? 0x17894 : 0x15894;
+	for (path = 0; path < 2; path++) {
+		unsigned int reg = path ? 0x17894 : 0x15894;
 
-			/* PAPE byte0=4,TRSW byte1=6. RFE53/54 LNA inverted,
-			 * standby mode=1,so LNA byte2=a instead of the default8. */
-			rtl_ax_update32(io, reg, 255, 4);
-			rtl_ax_update32(io, reg, 255U << 8, 6U << 8);
+		/* PAPE byte0=4,TRSW byte1=6. RFE53/54 LNA inverted,
+		 * standby mode=1,so LNA byte2=a instead of the default8. */
+		rtl_ax_update32(io, reg, 255, 4);
+		rtl_ax_update32(io, reg, 255U << 8, 6U << 8);
+		if (chip == RTL_AX_8192XB)
 			rtl_ax_update32(io, reg, 255U << 16, 10U << 16);
-		}
 	}
+	if (chip == RTL_AX_8852C)
+		for (path = 0; path < 2; path++)
+			rtl_ax_update32(io, path ? 0x17894 : 0x15894, 255U << 16, 10U << 16);
 	dm->gpio_ready = true;
 }
 
