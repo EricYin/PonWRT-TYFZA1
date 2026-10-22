@@ -1,3 +1,57 @@
+## v0.8.1-pt1570-lan20
+
+### 本版内容
+
+- **修复系统内升级后配置全丢（严重）**。
+
+  lan19 的内核上做过一次完整的 `sysupgrade` 实测：**rootfs 确实写进去了**
+  （`ubiblock0_3` 前 1 MB 的 MD5 和镜像完全一致，卷自动从 165 扩到 166 LEB），
+  但升级完成后**配置全没了** —— 没有 root 密码、没有 PPPoE 账号、
+  Wi-Fi 回到默认设置。
+
+  根因：上游的完整调用链是
+
+  ```
+  nand_do_upgrade
+    → nand_upgrade_tar            ← 只写 kernel 和 rootfs
+    → nand_do_upgrade_success
+        → nand_do_restore_config  ← 把 /tmp/sysupgrade.tgz 塞进新的 rootfs_data
+  ```
+
+  `tyfza1_write_slots()` 替掉的是**整个 `nand_do_upgrade`**，但当初只照着
+  `nand_upgrade_tar` 写，漏掉了最后那一步配置恢复。
+
+  现在补上：
+
+  ```sh
+  ubiupdatevol "/dev/$rvol" "$work/root" || return 1
+  rm -rf "$work"
+  nand_do_restore_config || return 1
+  return 0
+  ```
+
+- **`DISTRIB_REVISION` 改为反映实际 commit（第二次修，这次是真修）**。
+
+  上一版写的 `CONFIG_VERSION_REVISION` **在 OpenWrt 里根本不存在**这个
+  Kconfig 符号，被 `make` 静默丢弃，所以版本号一直是 `r0-79bc56c`。
+
+  `include/version.mk` 的真实逻辑：
+
+  ```make
+  VERSION_CODE:=$(call qstrip,$(CONFIG_VERSION_CODE))
+  VERSION_CODE:=$(if $(VERSION_CODE),$(VERSION_CODE),$(REVISION))
+  ```
+
+  正确的符号是 **`CONFIG_VERSION_CODE`**，声明在
+  `package/base-files/image-config.in`。现在 `build.sh` 写这个，
+  每次构建都会带上 commit。
+
+  影响：LuCI 的静态资源 URL 是 `...?v=${resource_version}`，
+  这个值不变 → 浏览器永远用旧缓存。修好之后刷完固件不用再强刷。
+
+- 含 `v0.8.1-pt1570-lan19` 的全部内容：无线键改用 `KEY_RFKILL`
+  （实测有效）、移除负优化的工具链缓存、2.4G 跳过 FEM GPIO 配置。
+
 ## v0.8.1-pt1570-lan19
 
 ### 本版内容
