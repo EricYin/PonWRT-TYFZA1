@@ -91,6 +91,20 @@ else
         --stock "${TYFZA1_STOCK_INPUTS:-$PROJECT/analysis/private/live-files}"
     python3 "$PROJECT/tools/prepare_wifi_runtime.py" "$TREE/files" --openwrt-tree "$TREE"
 fi
+# The runtime-inputs tarball ships RadioA/RadioB with an extra "TX PA delay"
+# entry (0x15 = 0x00040, "delay 1.6us") that the stock firmware does not have.
+# With it the 5 GHz link settles at HE-MCS 7 (1441 Mbps); removing it raised the
+# same client from MCS 7 to MCS 9 (1921 Mbps) and downstream UDP from 284 to
+# 369 Mbps. Everything else in those files already matches stock.
+for radio in RadioA RadioB; do
+    f="$TREE/files/lib/firmware/realtek/tyfza1/rtl8852ce/RFE54/$radio.txt"
+    [ -f "$f" ] || continue
+    if grep -q 'TX PA delay' "$f"; then
+        awk '/\/\/TX PA delay/{skip=1; next} skip==1{skip=0; next} {print}' "$f" > "$f.tmp" &&
+            mv "$f.tmp" "$f"
+        echo "Dropped TX PA delay from $radio.txt"
+    fi
+done
 make -j"$JOBS" world || {
     echo "Parallel world build failed; retrying with -j1 V=s to capture the real error" >&2
     make -j1 V=s world
