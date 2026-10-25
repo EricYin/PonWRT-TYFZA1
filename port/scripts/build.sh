@@ -30,7 +30,32 @@ if ! grep -Fq 'regulatory.db.p7s' package/firmware/wireless-regdb/Makefile; then
     patch -p1 --fuzz=0 < "$PORT/host-patches/110-wireless-regdb-signed.patch"
     REGDB_PATCHED=1
 fi
+# DISTRIB_REVISION is built from version.mk's VERSION_CODE, which falls back to
+# REVISION when CONFIG_VERSION_CODE is empty. Setting CONFIG_VERSION_CODE in
+# .config alone did not survive: the value was still r0-79bc56c in lan20, so the
+# oldconfig pass in `make world` drops or overrides it. Stamp the fallback that
+# version.mk itself reads, and keep the Kconfig value as a second attempt.
+rev="r0-$(printf '%s' "${GITHUB_SHA:-$(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo 0000000)}" | cut -c1-7)"
+sed -i "s|^# REVISION:=x|REVISION:=$rev|" "$TREE/include/version.mk"
+grep -q "^REVISION:=$rev" "$TREE/include/version.mk" || {
+    echo "Failed to stamp REVISION in $TREE/include/version.mk" >&2
+    exit 1
+}
 make defconfig
+# Stamp the real commit into DISTRIB_REVISION. LuCI builds its static-asset URLs
+# as "...?v=${resource_version}", and resource_version comes from this string -
+# so if it never changes, the browser keeps serving the previous UI after an
+# upgrade and every flash looks like it did nothing. A fixed "r0-79bc56c" is
+# what shipped before; derive it from the commit instead.
+#
+# The symbol is CONFIG_VERSION_CODE, NOT CONFIG_VERSION_REVISION. version.mk
+# derives DISTRIB_REVISION from VERSION_CODE, and CONFIG_VERSION_REVISION is not
+# a declared Kconfig symbol anywhere, so writing it was silently discarded and
+# DISTRIB_REVISION kept falling back to the git-describe default. VERSION_CODE
+# is declared in package/base-files/image-config.in.
+revision="${GITHUB_SHA:-$(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo 0000000)}"
+sed -i "/^CONFIG_VERSION_CODE=/d" .config
+printf 'CONFIG_VERSION_CODE="r0-%s"\n' "$(printf '%s' "$revision" | cut -c1-7)" >> .config
 for package in luci-app-tyfza1-pon luci-theme-argon luci-i18n-argon-config-zh-cn; do
     grep -qx "CONFIG_PACKAGE_$package=y" .config || {
         echo "Required firmware package missing after defconfig: $package" >&2
@@ -66,6 +91,20 @@ else
         --stock "${TYFZA1_STOCK_INPUTS:-$PROJECT/analysis/private/live-files}"
     python3 "$PROJECT/tools/prepare_wifi_runtime.py" "$TREE/files" --openwrt-tree "$TREE"
 fi
+# The runtime-inputs tarball ships RadioA/RadioB with an extra "TX PA delay"
+# entry (0x15 = 0x00040, "delay 1.6us") that the stock firmware does not have.
+# With it the 5 GHz link settles at HE-MCS 7 (1441 Mbps); removing it raised the
+# same client from MCS 7 to MCS 9 (1921 Mbps) and downstream UDP from 284 to
+# 369 Mbps. Everything else in those files already matches stock.
+for radio in RadioA RadioB; do
+    f="$TREE/files/lib/firmware/realtek/tyfza1/rtl8852ce/RFE54/$radio.txt"
+    [ -f "$f" ] || continue
+    if grep -q 'TX PA delay' "$f"; then
+        awk '/\/\/TX PA delay/{skip=1; next} skip==1{skip=0; next} {print}' "$f" > "$f.tmp" &&
+            mv "$f.tmp" "$f"
+        echo "Dropped TX PA delay from $radio.txt"
+    fi
+done
 make -j"$JOBS" world || {
     echo "Parallel world build failed; retrying with -j1 V=s to capture the real error" >&2
     make -j1 V=s world

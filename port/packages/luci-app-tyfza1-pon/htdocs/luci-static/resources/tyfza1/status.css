@@ -35,7 +35,11 @@
 }
 .tyf-pon .tyf-refresh-controls, .tyf-pon .tyf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .tyf-pon .tyf-updated { font-size: 12px; color: var(--tyf-muted); font-variant-numeric: tabular-nums; }
-.tyf-pon .tyf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 18px; margin: 18px 0; }
+/* Five tiles must fit on one row on a normal desktop width. At 260px each plus
+ * 18px gaps that needs 1372px, which overflows a typical ~1200px content area
+ * and wraps to two rows. 190px + 12px needs 998px, so the row holds down to a
+ * ~1000px viewport; narrower screens still fall back to fewer columns. */
+.tyf-pon .tyf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; margin: 18px 0; }
 .tyf-pon .tyf-card, .tyf-pon .tyf-tile, .tyf-pon .tyf-link-panel, .tyf-pon .tyf-fold {
 	min-width: 0; padding: 24px; border: 1px solid var(--tyf-border); border-radius: 12px;
 	background: var(--tyf-surface); box-shadow: 0 3px 12px rgba(20, 32, 60, .035);

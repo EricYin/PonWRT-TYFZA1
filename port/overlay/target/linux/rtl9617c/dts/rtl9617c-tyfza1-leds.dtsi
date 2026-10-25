@@ -52,13 +52,27 @@
 		btn-led {
 			label = "lights_toggle";
 			linux,code = <KEY_LIGHTS_TOGGLE>;
-			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 		btn-wifi {
-			label = "wps";
-			linux,code = <KEY_WPS_BUTTON>;
-			gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
+			/* Label must be one of gpio-button-hotplug's known set
+			 * (reset / wps / rfkill / lights_toggle) - anything else is
+			 * dropped silently. Use "rfkill": OpenWrt ships
+			 * /etc/rc.button/rfkill, which already toggles every radio
+			 * (all-on <-> all-off), so no custom script is needed.
+			 * "wps" was rejected at image build time because the
+			 * wifi-scripts package also owns /etc/rc.button/wps. */
+			label = "rfkill";
+			/* gpio-button-hotplug picks the script from linux,code, not from
+			 * label: it looks the code up in a fixed table (BTN_0..9,
+			 * KEY_LIGHTS_TOGGLE, KEY_RESTART, KEY_RFKILL, ...) and drops the
+			 * button entirely when the code is absent. KEY_WPS_BUTTON is not
+			 * in that table, which is why this key produced no events at all
+			 * no matter what its label was. KEY_RFKILL maps to
+			 * /etc/rc.button/rfkill, which toggles every radio. */
+			linux,code = <KEY_RFKILL>;
+			gpios = <&gpio0 99 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
 	};

@@ -6,7 +6,7 @@
 return view.extend({
 	load: function() { return ui.snapshot(); },
 	render: function(initial) {
-		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2', initial, ui.snapshot, function(data) {
+		return ui.page('运行状态', '光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。', initial, ui.snapshot, function(data) {
 			var pon = data.pon || {}, optical = pon.optical || {}, bosa = pon.bosa || {},
 				ddm = pon.transceiver || {};
 			/* DDM scaling is kept local on purpose. Moving it into status.js would

@@ -1,3 +1,438 @@
+## v0.8.1-pt1570-lan20
+
+### 本版内容
+
+- **修复系统内升级后配置全丢（严重）**。
+
+  lan19 的内核上做过一次完整的 `sysupgrade` 实测：**rootfs 确实写进去了**
+  （`ubiblock0_3` 前 1 MB 的 MD5 和镜像完全一致，卷自动从 165 扩到 166 LEB），
+  但升级完成后**配置全没了** —— 没有 root 密码、没有 PPPoE 账号、
+  Wi-Fi 回到默认设置。
+
+  根因：上游的完整调用链是
+
+  ```
+  nand_do_upgrade
+    → nand_upgrade_tar            ← 只写 kernel 和 rootfs
+    → nand_do_upgrade_success
+        → nand_do_restore_config  ← 把 /tmp/sysupgrade.tgz 塞进新的 rootfs_data
+  ```
+
+  `tyfza1_write_slots()` 替掉的是**整个 `nand_do_upgrade`**，但当初只照着
+  `nand_upgrade_tar` 写，漏掉了最后那一步配置恢复。
+
+  现在补上：
+
+  ```sh
+  ubiupdatevol "/dev/$rvol" "$work/root" || return 1
+  rm -rf "$work"
+  nand_do_restore_config || return 1
+  return 0
+  ```
+
+- **`DISTRIB_REVISION` 改为反映实际 commit（第二次修，这次是真修）**。
+
+  上一版写的 `CONFIG_VERSION_REVISION` **在 OpenWrt 里根本不存在**这个
+  Kconfig 符号，被 `make` 静默丢弃，所以版本号一直是 `r0-79bc56c`。
+
+  `include/version.mk` 的真实逻辑：
+
+  ```make
+  VERSION_CODE:=$(call qstrip,$(CONFIG_VERSION_CODE))
+  VERSION_CODE:=$(if $(VERSION_CODE),$(VERSION_CODE),$(REVISION))
+  ```
+
+  正确的符号是 **`CONFIG_VERSION_CODE`**，声明在
+  `package/base-files/image-config.in`。现在 `build.sh` 写这个，
+  每次构建都会带上 commit。
+
+  影响：LuCI 的静态资源 URL 是 `...?v=${resource_version}`，
+  这个值不变 → 浏览器永远用旧缓存。修好之后刷完固件不用再强刷。
+
+- 含 `v0.8.1-pt1570-lan19` 的全部内容：无线键改用 `KEY_RFKILL`
+  （实测有效）、移除负优化的工具链缓存、2.4G 跳过 FEM GPIO 配置。
+
+## v0.8.1-pt1570-lan19
+
+### 本版内容
+
+- **修复无线键完全无响应（真正的根因）**。
+
+  之前两次改 `label`（`wifi` → `wps` → `rfkill`）都没用，因为
+  **`gpio-button-hotplug` 根本不看 `label`** —— 它用 `linux,code`
+  去查一张固定的映射表：
+
+  ```c
+  static const struct bh_map button_map[] = {
+      BH_MAP(BTN_0, "BTN_0"), ... BH_MAP(BTN_9, "BTN_9"),
+      BH_MAP(KEY_BRIGHTNESS_ZERO, "brightness_zero"),
+      BH_MAP(KEY_CONFIG, "config"), BH_MAP(KEY_COPY, "copy"),
+      BH_MAP(KEY_EJECTCD, "eject"), BH_MAP(KEY_HELP, "help"),
+      BH_MAP(KEY_LIGHTS_TOGGLE, "lights_toggle"),
+      BH_MAP(KEY_PHONE, "phone"), BH_MAP(KEY_POWER, "power"),
+      BH_MAP(KEY_POWER2, "reboot"), BH_MAP(KEY_RESTART, "reset"),
+      BH_MAP(KEY_RFKILL, "rfkill"),
+      ...
+  };
+
+  bdata->map_entry = button_get_index(button->code);
+  if (bdata->map_entry < 0) {
+      dev_err(dev, "does not support key code:%u\n", button->code);
+      /* 直接跳过这个按键 */
+  }
+  ```
+
+  **`KEY_WPS_BUTTON` 不在这张表里**，所以无线键在驱动 probe 阶段就被丢弃了，
+  后面无论 `label` 叫什么都不会有任何事件。
+
+  现在 `btn-wifi` 的 `linux,code` 改为 **`KEY_RFKILL`**，映射到
+  OpenWrt 自带的 `/etc/rc.button/rfkill`（radio 全开/全关）。
+
+  对照：另外两个键一直能用，因为 `KEY_RESTART` / `KEY_LIGHTS_TOGGLE`
+  本来就在表里。
+
+- **移除工具链缓存**。lan18 实测 81 分钟，比 lan13 的冷构建（53 分钟）
+  **慢了 28 分钟**。
+
+  原因：只缓存 `staging_dir` 不够 —— OpenWrt 的增量构建依赖
+  `build_dir` 里的 `.built` 标记，`staging_dir` 恢复了但 `build_dir` 是空的，
+  所有包仍然全量重编，净效果是"多花了 760 MB 的下载和解压时间"。
+
+  已移除该缓存步骤，回到只缓存 `dl`（源码包）。`cache-keepalive.yml` 一并删除。
+  保留了体积测量步骤（`if: always()`），下次构建可以看到
+  `build_dir/target-*` 的真实体积，再决定是否值得缓存。
+
+- 含 `v0.8.1-pt1570-lan18` 的全部内容：2.4G 跳过 FEM GPIO 配置、体积测量。
+
+## v0.8.1-pt1570-lan18
+
+### 本版内容
+
+- **修复 2.4G 客户端搜不到 AP（关键）**。
+
+  硬件差异：**PT1570 只有 5G 有外置 FEM，2.4G 用芯片内置 PA/LNA**；
+  而 tyfza1 是 2.4G 和 5G 都有 FEM。原厂固件为此准备了独立的
+  `gpio_setting_init_XB@2f0218`（2.4G）和 `gpio_setting_init_C@2e585c`（5G）
+  两套初始化。
+
+  我们的驱动把两者合并了，**2.4G 也套用了 5G 的 FEM 配置**：
+
+  ```c
+  /* 修改前 */
+  rtl_ax_update32(io, reg, 255, 4);              /* PAPE = GPIO 4 */
+  rtl_ax_update32(io, reg, 255U << 8, 6U << 8);  /* TRSW = GPIO 6 */
+  if (chip == RTL_AX_8192XB)                     /* 2.4G */
+      rtl_ax_update32(io, reg, 255U << 16, 10U << 16);  /* LNA = GPIO 10 */
+  ```
+
+  芯片因此**按"有外置 FEM 增益"去算 2.4G 发射功率**，实际却是内置 PA，
+  功率严重偏离 —— 表现为 AP 在广播（hostapd `AP-ENABLED`、AX210 能搜到），
+  但**手机搜不到**，或者搜到了也连不上。
+
+  ```c
+  /* 修改后：只有 5G 配置 FEM */
+  if (chip == RTL_AX_8852C) {
+      rtl_ax_update32(io, reg, 255, 4);
+      rtl_ax_update32(io, reg, 255U << 8, 6U << 8);
+      rtl_ax_update32(io, reg, 255U << 16, 10U << 16);
+  }
+  ```
+
+- **无线键改用 `rfkill` label**（含 lan17 的内容）。`wifi-scripts` 包已经提供
+  `/etc/rc.button/wps`，我们再加一份会导致打包冲突：
+
+  ```
+  ERROR: wifi-scripts-1.0-r2: trying to overwrite etc/rc.button/wps
+  ```
+
+  改用 OpenWrt 自带的 `/etc/rc.button/rfkill`，逻辑正好是 radio 全开/全关，
+  零冲突、零自定义脚本。
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、LAN LED 修正、
+  注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
+## v0.8.1-pt1570-lan17
+
+### 本版内容
+
+- **修复上一版构建失败：`/etc/rc.button/wps` 与 wifi-scripts 包冲突**。
+
+  ```
+  ERROR: wifi-scripts-1.0-r2: trying to overwrite etc/rc.button/wps
+         owned by base-files-1~79bc56c
+  ```
+
+  `wifi-scripts` 包已经提供了 `/etc/rc.button/wps`（它遍历 `/etc/rc.wps/*`），
+  我们的 overlay 又放了一份同名文件，打包时直接报冲突。
+
+- **无线键改用 `rfkill` label，不再需要自定义脚本**。
+
+  `gpio-button-hotplug` 只认 `reset` / `wps` / `rfkill` / `lights_toggle`，
+  而 OpenWrt 自带 `/etc/rc.button/rfkill`，逻辑正好是我们要的：
+
+  ```sh
+  wifi_rfkill_check() {   # 只要有一个 radio 启用，就把状态翻成"全关"
+      config_get disabled $1 disabled
+      [ "$disabled" = "1" ] || rfkill_state=1
+  }
+  config_foreach wifi_rfkill_set wifi-device
+  uci commit wireless
+  wifi up
+  ```
+
+  **全开 ↔ 全关切换，零冲突、零自定义代码**。
+
+  自定义的 `/etc/rc.button/wps` 已删除。
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、LAN LED 修正、
+  注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
+## v0.8.1-pt1570-lan16
+
+### 本版内容
+
+- **无线键不产生任何事件的真正原因：label 不在白名单里**。
+
+  上一版把按键 label 改成了 `wifi`，结果**连 hotplug 事件都不产生**——
+  `logread | grep wifi-button` 一条 `released` 都没有，而同一批注册的
+  `lights_toggle`（GPIO103）响应正常。
+
+  原因：OpenWrt 的 `gpio-button-hotplug` 有一张**固定的 label 表**：
+
+  ```
+  reset / wps / rfkill / lights_toggle
+  ```
+
+  **不在表里的 label 会被直接跳过**，不产生任何事件。`wifi` 不在表里。
+
+  现在 label 改回 `wps`（在表里），脚本也从 `/etc/rc.button/wifi`
+  改名为 `/etc/rc.button/wps`（覆盖 OpenWrt 的标准 WPS 脚本）。
+
+  **行为不变**——仍然是 radio 开关，label 只是内部标识，用户看不到。
+
+- 含 `v0.8.1-pt1570-lan15` 的全部内容：按键 GPIO 交换、无线键加锁 +
+  每次 released 记日志、LAN LED 修正、注册灯重算、工具链缓存、
+  sysupgrade LEB 对齐。
+
+## v0.8.1-pt1570-lan15
+
+### 本版内容
+
+- **无线键再加锁 + 记录按键事件**。上一版改成异步 reload 后，仍然出现
+  "按几次之后关了就打不开"。这次加了三个东西：
+
+  1. **`flock` 串行化**：上一次的 reload 可能还在跑，和这一次撞在一起
+  2. **每次 released 记一条日志**（含 `SEEN`）：这样"按键没反应"就能区分
+     是**根本没触发**，还是**触发了但被跳过**
+  3. **`wifi reload` 换成 `wifi down` / `wifi up`**，语义更直接
+
+  设备上模拟两次的结果：
+
+  ```
+  released seen=1 / radios disabled=1   <- 关闭
+  released seen=1 / radios disabled=0   <- 打开
+  ```
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、LAN LED 修正、
+  注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
+## v0.8.1-pt1570-lan14
+
+### 本版内容
+
+- **修好无线键（上一版几乎不可用）**。三个问题叠在一起：
+
+  1. **`wifi reload` 是同步调用**，拆 radio 时它会阻塞好几秒，
+     脚本卡在那里，`logger` 那行永远执行不到，按键也像是"没反应"；
+     而 `disabled` 其实已经被改了 —— 于是按几次之后 WiFi 关了，再按却打不开。
+  2. **状态判断依赖 uci 的 `disabled`**，但这个值可能是"未设置"（表示启用），
+     而且 reload 失败时 uci 和现实会脱节。
+  3. **没有防抖**，按键抖动或连按会让状态翻转两次。
+
+  改成：
+
+  ```sh
+  # 3 秒防抖
+  stamp=/tmp/.wifi-button.stamp
+  ...
+
+  # 用实际接口判断，不看 uci
+  if iw dev 2>/dev/null | grep -q 'Interface'; then target=1; else target=0; fi
+
+  uci commit wireless
+  logger -t wifi-button "radios disabled=$target"   # 先记日志
+
+  ( wifi reload >/dev/null 2>&1 & )                 # 再异步 reload
+  ```
+
+  设备上实测：
+
+  ```
+  第一次：disabled=1  接口数 0  日志 radios disabled=1
+  第二次：disabled=0  接口数 2  日志 radios disabled=0
+  ```
+
+- 含 `v0.8.1-pt1570-lan13` 的全部内容：按键 GPIO 交换、无线键改 radio 开关、
+  LAN 口指示灯错位修正、注册灯重算、工具链缓存、sysupgrade LEB 对齐。
+
+## v0.8.1-pt1570-lan13
+
+### 本版内容
+
+- **去掉状态页描述里的调试标记**。上一版为了确认浏览器有没有加载到新文件，
+  在副标题末尾加了一个 `· UI r2`，忘记删掉了：
+
+  ```
+  光链路、业务网络与无线，集中查看。接口连接不等于互联网可达。 · UI r2
+  ```
+
+  现在恢复为原本的文案。
+
+- 含 `v0.8.1-pt1570-lan12` 的全部内容：无线键改为 radio 开关、
+  灯光键与无线键 GPIO 交换、LAN 口指示灯错位修正、注册灯每个 tick 重算、
+  工具链缓存、sysupgrade LEB 对齐写入、`DISTRIB_REVISION` 改为 commit。
+
+## v0.8.1-pt1570-lan12
+
+### 本版内容
+
+- **无线键改为「无线开关」**。它原本绑的是 `wps`，但固件的 wpad 是 basic 版
+  不带 WPS，按下去完全没有效果。改成开关更实用：
+
+  - DTS label 从 `wps` 改为 `wifi`（`linux,code` 保持不变）
+  - 新增 `/etc/rc.button/wifi`：按一下关闭所有 radio，再按一下打开
+
+  ```sh
+  current=$(uci -q get wireless.@wifi-device[0].disabled)
+  [ "$current" = "1" ] && target=0 || target=1
+  # 遍历所有 wifi-device，写 disabled=$target
+  uci commit wireless
+  wifi reload
+  ```
+
+  `wifi reload` 会重启 hostapd，所以连按两次也等于「重启无线」。
+
+- 含 `v0.8.1-pt1570-lan11` 的全部内容：灯光键与无线键 GPIO 交换、
+  LAN 口指示灯错位修正、注册灯每个 tick 重算、工具链缓存、
+  sysupgrade LEB 对齐写入、`DISTRIB_REVISION` 改为 commit。
+
+## v0.8.1-pt1570-lan11
+
+### 本版内容
+
+- **交换灯光键与无线键的 GPIO**。两个键的物理位置和 label 绑反了：
+
+  | 物理按键 | 实际触发 | 应该触发 |
+  | --- | --- | --- |
+  | 灯光 | `wps`（GPIO 99）→ wpad 不支持，**无反应** | `lights_toggle` |
+  | 无线 | `lights_toggle`（GPIO 103）→ **所有灯全灭** | `wps` |
+
+  现象正好印证：按「无线」键灯全灭（`lights_toggle` 把 LED mode 切到 0），
+  按「灯光」键毫无反应（`/etc/rc.button/wps` 遍历 `/etc/rc.wps/*`，
+  但固件的 wpad 是 basic 版，没有 WPS 功能）。
+
+  现在 `btn-led` 绑 GPIO 103、`btn-wifi` 绑 GPIO 99。
+  测试夹具同步更新（board 0 的 `btn-wifi` 继承主 DTSI，也跟着变成 99）。
+
+- 含 `v0.8.1-pt1570-lan9`/`lan10` 的全部内容：LAN 口指示灯错位修正、
+  注册灯每个 tick 重算、工具链缓存、sysupgrade LEB 对齐写入、
+  `DISTRIB_REVISION` 改为 commit、瓦片排成一行。
+
+## v0.8.1-pt1570-lan10
+
+### 本版内容
+
+- **修正 LAN 口指示灯错位**。插在面板 `LAN4` 会点亮面板 `LAN1` 的灯。
+
+  根因：早前为了让"软件 lan1 == 面板 LAN1"做过一次设备树反转实验
+  （把 `realtek,lan-phys` 反序），同时把 `94-tyfza1-leds` 里的
+  `lan_devs` 改成了 `lan4 lan3 lan2 lan1` 来配合。那个实验**破坏了数据通路**
+  （`rx_packets` 恒为 0）后被回滚，但 `lan_devs` **忘了改回来**。
+
+  于是当前映射是：
+
+  | LED | 实际绑定的接口 | 应该绑定 |
+  | --- | --- | --- |
+  | `LED_EPHY0`（面板 LAN4 的灯） | `lan4` | **`lan1`** |
+  | `LED_EPHY1`（面板 LAN3 的灯） | `lan3` | **`lan2`** |
+  | `LED_EPHY2`（面板 LAN2 的灯） | `lan2` | **`lan3`** |
+  | `LED_EPHY3`（面板 LAN1 的灯） | `lan1` | **`lan4`** |
+
+  插在面板 LAN4 时，软件接口是 `lan1`（UP），而 `LED_EPHY3` 正好绑了 `lan1`，
+  所以亮的是面板 LAN1 的灯。
+
+  现在 `lan_devs` 恢复为 `lan1 lan2 lan3 lan4`（自然顺序）：
+  `LED_EPHY0` → `lan1` → 面板 LAN4，以此类推。
+
+  2.5G 变体那一支的 `lan_devs` 保持不变——那块板子的 PHY 顺序本来就不同。
+
+- 含 `v0.8.1-pt1570-lan9` 的全部内容：注册灯每个 tick 重算、
+  工具链缓存、sysupgrade LEB 对齐写入、`DISTRIB_REVISION` 改为 commit、
+  瓦片排成一行。
+
+## v0.8.1-pt1570-lan9
+
+### 本版内容
+
+- **修复注册灯在开机后一直闪烁**。`leds.uc` 的 auth 判断带了一个
+  `key = mode:session:auth:state` 的缓存，本意是省掉重复计算。但守护进程在
+  PON 还在 O1 时就启动了，`state` 之后变成 O5，而 `auth` 恒为 0
+  （中国移动按 SN 认证，OMCI 从不上报结果），缓存 key 几乎不动，
+  于是 LED 一直停在 `itu_patterns[O5] = 250`（闪烁），
+  必须手动 `restart` 才常亮。
+
+  现在改成**每个 tick 都重新判断**——几次比较的开销远小于一个会过期的缓存。
+
+- **构建缓存工具链**（首次构建仍然慢，从第二次起生效）。
+  之前只缓存了 `dl`（源码包），而一次冷构建里**交叉工具链 + host 工具
+  占了将近一半时间**（约 40 分钟）。新增缓存：
+
+  ```
+  sources/openwrt/staging_dir
+  sources/openwrt/build_dir/host
+  ```
+
+  key 包含 `sources.lock.json` + `configs/*.config` + 内核 `config-6.18`，
+  这三者不变就复用。OpenWrt 的构建系统仍会检查 `build_dir` 内的时间戳，
+  所以缓存不会掩盖源码改动。
+
+- 含 `v0.8.1-pt1570-lan8` 的全部内容：sysupgrade 改为 LEB 对齐写入、
+  `DISTRIB_REVISION` 改为实际 commit、瓦片排成一行。
+
+## v0.8.1-pt1570-lan8
+
+### 本版内容
+
+- **修复 `sysupgrade` 写不进 rootfs（重要）**。之前每次升级都能跑完、设备也重启，
+  但 rootfs 内容不变、overlay 却被清空，看起来像"升级没生效"。
+
+  根因：`ubiupdatevol()` 在数据正好落在 LEB 边界上时会**静默失败**。
+  这块板子的 rootfs 是 20,916,044 字节，写进 165 LEB 的卷（20,951,040 字节），
+  **余量只有 34,996 字节**。
+
+  `platform_do_upgrade()` 不再走 `nand_do_upgrade()`，改为自己写：
+  先解出 kernel / root，`nand_upgrade_prepare_ubi` 准备好卷，
+  然后把 rootfs **pad 到 LEB 整数倍**再写入，彻底避开边界情况。
+  多出来的零字节位于 squashfs 超级块之后，永远不会被读取。
+
+- **`DISTRIB_REVISION` 改为反映实际 commit**。之前它恒为 `r0-79bc56c`
+  （构建脚本写死的 baseline），导致：
+
+  - LuCI 的静态资源 URL 是 `...?v=${resource_version}`，
+    这个值不变 → **浏览器永远用旧缓存**，每次刷完固件 UI 都像没变
+  - 排查时无法用版本号判断固件有没有刷进去（我因此误判了两次）
+
+  现在 `build.sh` 在 `make defconfig` 之后写入
+  `CONFIG_VERSION_REVISION="r0-<commit>"`，每次构建都会变。
+
+- **状态页 5 个瓦片排成一行**。grid 从 `minmax(260px)` + 18px 间距
+  改成 `minmax(190px)` + 12px 间距：5 个瓦片所需宽度从 1372px 降到 998px，
+  1000px 以上的视口都能一行放下。
+
+- 含 `v0.8.1-pt1570-lan7` 的全部内容：视图改回 `overview.js`、
+  LAN 映射回滚、升级检查收紧为 PT1570 专属、`model` 改为
+  `YHTC PT1570-R10`、描述样式对齐 Argon。
+
 ## v0.8.1-pt1570-lan7
 
 ### 本版内容

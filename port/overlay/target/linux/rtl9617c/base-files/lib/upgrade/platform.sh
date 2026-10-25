@@ -67,5 +67,91 @@ platform_do_upgrade() {
 	esac
 	CI_KERNPART="ubi_k$slot"
 	CI_ROOTPART="ubi_r$slot"
-	nand_do_upgrade "$1"
+	tyfza1_write_slots "$1"
+}
+
+# Write kernel and rootfs directly instead of going through nand_do_upgrade.
+#
+# ubiupdatevol() fails without a message when the payload ends exactly on a LEB
+# boundary. This board's rootfs is 20,916,044 bytes into a 165-LEB volume
+# (20,951,040 bytes) - only 34,996 bytes of slack - so the write silently did
+# nothing and the box rebooted on the old rootfs with a wiped overlay, which
+# looked exactly like "the upgrade had no effect".
+#
+# Padding the payload to a whole number of LEBs removes the boundary case. The
+# extra bytes sit past the end of the squashfs superblock and are never read.
+tyfza1_write_slots() {
+	local tar="$1"
+	local board_dir work kvol rvol ksize rsize pad
+	local leb=126976
+
+	board_dir=$(tar tf "$tar" | grep -m 1 '^sysupgrade-.*/$') || return 1
+	board_dir=${board_dir%/}
+	work=/tmp/tyfza1-upgrade
+	rm -rf "$work"
+	mkdir -p "$work" || return 1
+
+	tar xOf "$tar" "$board_dir/kernel" > "$work/kernel" || return 1
+	tar xOf "$tar" "$board_dir/root" > "$work/root" || return 1
+	ksize=$(wc -c < "$work/kernel")
+	rsize=$(wc -c < "$work/root")
+	[ "$ksize" -gt 0 ] && [ "$rsize" -gt 0 ] || {
+		echo "empty kernel or rootfs in $tar" >&2
+		return 1
+	}
+
+	nand_upgrade_prepare_ubi "$rsize" squashfs "$ksize" "" || return 1
+
+	kvol=$(nand_find_volume ubi0 "$CI_KERNPART") || return 1
+	rvol=$(nand_find_volume ubi0 "$CI_ROOTPART") || return 1
+
+	ubiupdatevol "/dev/$kvol" -s "$ksize" "$work/kernel" || return 1
+
+	pad=$(( (leb - rsize % leb) % leb ))
+	if [ "$pad" -gt 0 ]; then
+		dd if=/dev/zero bs=1 count="$pad" >> "$work/root" 2>/dev/null || return 1
+	fi
+	ubiupdatevol "/dev/$rvol" "$work/root" || return 1
+
+	rm -rf "$work"
+
+	# nand_do_upgrade() would have called this from nand_do_upgrade_success().
+	# Because tyfza1_write_slots() replaces that whole path, the call has to be
+	# made here explicitly - otherwise the upgrade finishes "successfully" but
+	# the new rootfs_data volume stays empty, and the box comes back with no
+	# root password, no PPPoE account and default Wi-Fi settings. That is
+	# exactly what happened on the first real run of this function.
+	echo "tyfza1_write_slots: config backup $([ -f /tmp/sysupgrade.tgz ] && echo present || echo MISSING)"
+	nand_do_restore_config || return 1
+
+	return 0
+}
+
+# do_stage2 calls platform_copy_config() after platform_do_upgrade() whenever
+# UPGRADE_BACKUP is set. nand_do_upgrade() handles the backup internally, but
+# tyfza1_write_slots() bypasses it, and /tmp/sysupgrade.tgz was not visible to
+# nand_do_restore_config() during the two lan20 test upgrades - the config came
+# back empty both times. Implementing the documented hook lets the framework
+# hand us the real backup path instead of relying on a hard-coded one.
+platform_copy_config() {
+	local ubidev ubivol
+
+	[ -n "$UPGRADE_BACKUP" ] && [ -f "$UPGRADE_BACKUP" ] || {
+		echo "platform_copy_config: no backup at '$UPGRADE_BACKUP'" >&2
+		return 1
+	}
+
+	ubidev=$(nand_find_ubi "${CI_UBIPART:-ubi_device}") || return 1
+	ubivol=$(nand_find_volume "$ubidev" rootfs_data) || return 1
+
+	mkdir -p /tmp/new_root
+	mount -t ubifs "/dev/$ubivol" /tmp/new_root || {
+		echo "platform_copy_config: cannot mount $ubivol" >&2
+		return 1
+	}
+
+	cp -a "$UPGRADE_BACKUP" "/tmp/new_root/$BACKUP_FILE" && sync
+	umount /tmp/new_root
+	echo "platform_copy_config: configuration saved to $ubivol"
+	return 0
 }

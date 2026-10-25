@@ -123,17 +123,16 @@ while (true) {
 		let text = readfile('/var/run/pon-omci');
 		let omci = text == null ? null : fields(text);
 		let auth = live(omci, now) && omci.session == session ? +omci.auth : 0;
-		/* state must be part of the key: at boot the state machine is still
-		 * in O1/O2 while auth is already 0, so without it the O5 transition
-		 * never invalidates the cache and the LED keeps blinking forever. */
-		key = mode + ':' + session + ':' + auth + ':' + state;
-		if (key != auth_key) {
-			if (link.enabled == '1' && state == 'O5')
-				/* China Mobile authenticates by serial number and never reports an
-				 * OMCI auth result, so treat an established path set as success. */
-				current = (auth == 1 || (omci != null && +omci.paths > 0 && +omci.error == 0)) ? 1 : auth > 1 ? 0 : 250;
-			auth_key = key;
-		}
+		/* Evaluate on every tick instead of caching on a key. The daemon starts
+		 * while the PON is still in O1; `state` later becomes O5, but with
+		 * `auth` pinned at 0 the cache key barely moves and the LED stayed on
+		 * the itu_patterns[O5] = 250 blink until the service was restarted by
+		 * hand. A handful of comparisons per second is cheaper than a cache
+		 * that can go stale.
+		 * China Mobile authenticates by serial number and never reports an
+		 * OMCI auth result, so an established path set counts as success. */
+		if (link.enabled == '1' && state == 'O5')
+			current = (auth == 1 || (omci != null && +omci.paths > 0 && +omci.error == 0)) ? 1 : auth > 1 ? 0 : 250;
 	}
 	pattern('LED_PON', current);
 	sleep(1000);
